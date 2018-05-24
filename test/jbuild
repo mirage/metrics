@@ -1,0 +1,10 @@
+(jbuild_version 1)
+
+(executable
+ ((name      test)
+  (libraries (metrics ptime.clock.os))))
+
+(alias
+ ((name runtest)
+  (deps (test.exe))
+  (action (run ${exe:test.exe}))))
