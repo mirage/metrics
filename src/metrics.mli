@@ -23,13 +23,20 @@ type ('a, 'b) src
 type 'a ty
 (** The type for data types. *)
 
-val string: string ty
-val float: float ty
-val int: int ty
-val int32: int32 ty
-val int64: int64 ty
 val bool: bool ty
 
+val float: float ty
+
+val string: string ty
+
+val int: int ty
+val uint: int ty
+
+val uint32: Int32.t ty
+val int32: int32 ty
+
+val int64: int64 ty
+val uint64: Int64.t ty
 
 (** Data points.
 
@@ -77,8 +84,7 @@ module Frame: sig
   (** [hd f] is [f]'s first element. *)
 
   val tl: ('a -> 'b, 'c) t -> ('b, 'c) t
-  (** [tl f] is [f] without its firs
-t element. *)
+  (** [tl f] is [f] without its firs t element. *)
 
   val empty: ('a -> unit, 'a -> unit) t
   (** [empty] is the empty frame. *)

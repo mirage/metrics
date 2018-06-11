@@ -43,9 +43,12 @@ type 'a ty = {
 let string = { pp = Fmt.string }
 let float = { pp = Fmt.float }
 let int = { pp = Fmt.int }
+let uint = { pp = Fmt.uint }
 let int32 = { pp = Fmt.int32 }
 let int64 = { pp = Fmt.int64 }
 let bool = { pp = Fmt.bool }
+let uint32 = { pp = Fmt.uint32 }
+let uint64 = { pp = Fmt.uint64 }
 
 module Data = struct
 
