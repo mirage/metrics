@@ -16,31 +16,43 @@
 
 let src =
   let open Metrics in
-  Src.create "test" Frame.["foo", int; "bar", string] int (fun i ->
-      Data.v [
-        "toto", Data.string ("XXX" ^ string_of_int i);
-        "titi", Data.int i
-      ])
+  let tags = Tags.[
+      "foo", int;
+      "bar", string;
+    ] in
+  let fields i =
+    Data.v [
+      "toto", Data.string ("XXX" ^ string_of_int i);
+      "titi", Data.int i
+    ] in
+  Src.push "test" ~tags ~fields
 
-let f () =
-  Metrics.v src (fun m -> m 4 "toto" 42);
-  Metrics.v src (fun m -> m 4 "toto" 43)
+let i0 = Metrics.v src 42 "hi!"
+let i1 = Metrics.v src 12 "toto"
+
+let f i =
+  Metrics.push i (fun m -> m 42);
+  Metrics.push i (fun m -> m 43)
 
 let set_reporter () =
   let report ~tags ~fields ?timestamp ~over src k =
     let name = Metrics.Src.name (Src src) in
-    let pp = Fmt.(list ~sep:(unit ",") (pair ~sep:(unit "=") string string)) in
+    let pp =
+      Fmt.(list ~sep:(unit ",") (pair ~sep:(unit "=") string Fmt.(quote string)))
+    in
     let timestamp = match timestamp with
       | Some ts -> ts
-      | None    -> Ptime.to_rfc3339 (Ptime_clock.now ())
+      | None    -> Fmt.to_to_string Mtime.pp (Mtime_clock.now ())
     in
     Fmt.pr "%s %a %a %s\n%!" name pp tags pp fields timestamp;
     over ();
     k ()
   in
-  Metrics.set_reporter { Metrics.report }
+  let now () = Mtime_clock.now () |> Mtime.to_uint64_ns in
+  Metrics.set_reporter { Metrics.report; now }
 
 let () =
   set_reporter ();
   Metrics.enable_all ();
-  f ()
+  f i0;
+  f i1
