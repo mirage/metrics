@@ -16,29 +16,6 @@
 
 (** Metrics monitoring. *)
 
-type ('a, 'b, 'd) src
-(** The type for metric sources. A source defines a named unit for a
-   metric. The ['a] parameter is the type of the metric tags. TODO:
-   explain type parameters. *)
-
-type 'a ty
-(** The type for data types. *)
-
-val bool: bool ty
-
-val float: float ty
-
-val string: string ty
-
-val int: int ty
-val uint: int ty
-
-val uint32: Int32.t ty
-val int32: int32 ty
-
-val int64: int64 ty
-val uint64: Int64.t ty
-
 (** Data points.
 
     Data points are the contents of the collected metrics; they are a
@@ -73,28 +50,19 @@ module Data: sig
 
 end
 
-(** Typed dataframe. *)
-module Frame: sig
+type tags = Data.t
+(** The type for metric tags. Used to distinguish the various entities
+   that are being measured. *)
 
-  (** The type for a typed dictionary of tags. *)
-  type ('a, 'b) t =
-    | []  : ('b, 'b) t
-    | (::): (string * 'a ty) * ('b, 'c) t -> ('a -> 'b, 'c) t
+type fields = Data.t
+(** The type for metric fields. Is supposed to vary every time a new
+   data point is collected. *)
 
-  val hd: ('a -> 'b, 'c) t -> string * 'a ty
-  (** [hd f] is [f]'s first element. *)
-
-  val tl: ('a -> 'b, 'c) t -> ('b, 'c) t
-  (** [tl f] is [f] without its firs t element. *)
-
-  val empty: ('a -> unit, 'a -> unit) t
-  (** [empty] is the empty frame. *)
-
-  val cons: string -> 'a ty -> ('b, 'c) t -> ('a -> 'b, 'c) t
-  (** [cons n ty f] is the new frame [t] such that [hd t = (n, ty)]
-      and [tl t = f]. *)
-
-end
+type ('a, 'b, 'c) src
+(** The type for metric sources. A source defines a named unit for a
+   metric. ['a] is the type of the function used to create new
+   {!fields}. ['b] is the type of the function used to create new
+   {!tags}. ['c] is the kind of metrics (See {!Src.kind}). *)
 
 (** Data sources. *)
 module Src : sig
@@ -110,8 +78,8 @@ module Src : sig
   val doc : t -> string
   (** [doc src] is [src]'s documentation string. *)
 
-  val tags : t -> string list
-  (** [tags src] is the list of tags of [src] (if any).  *)
+  val domain : t -> string list
+  (** [domain src] is the list of tags of [src] (if any).  *)
 
   val equal : t -> t -> bool
   (** [equal src src'] is [true] iff [src] and [src'] are the same source. *)
@@ -142,31 +110,42 @@ module Src : sig
   type status = [`Ok | `Error]
   (** The type for event status. *)
 
-  type 'a timer = (int64 -> status -> unit, 'a, [`Timer]) src
+  type 'a timer = ('a, int64 -> status -> Data.t, [`Timer]) src
   (** The type for timers. The callback takes the duration of the
      event in milliseconds (an [int64]) and the status: [Error] or
      [Success]. *)
 
-  val v : ?kind:kind -> ?doc:string -> string -> ('a, 'b -> unit) Frame.t ->
-    'b ty -> ('b -> Data.t) -> ('a, 'b, kind) src
-  (** [v ?doc name tags] is a new metric source. [name] is the
-     name of the source; it doesn't need to be unique but it is good
-     practice to prefix the name with the name of your package or
-     library (e.g. ["mypkg.network"]). [doc] is a documentation string
-     describing the source, defaults to ["undocumented"]. [tags] is
-     the collection if (typed) tags which will be used to index the
-     metric and are used identify the various metric. The source will
-     be enabled on creation iff one of tag in [tags] has been enabled
-     with {!enable_tag}.
+  val push: ?doc:string -> ?tags:((Data.t -> unit) -> 'a) -> fields:'b ->
+    string -> ('a, 'b, [`Push]) src
+  (** [push ?doc ?tags name ty f] is a new push source. [name] is the
+      name of the source; it doesn't need to be unique but it is good
+      practice to prefix the name with the name of your package or
+      library (e.g. ["mypkg.network"]). [doc] is a documentation string
+      describing the source, defaults to ["undocumented"]. [tags] is
+      the collection if (typed) tags which will be used to index the
+      metric and are used identify the various metric. [ty] is the type
+      of the input value of the metric callback [f]. The source will be
+      enabled on creation iff one of tag in [tags] has been enabled
+      with {!enable_tag}.
 
       For instance, to create a metric to collect CPU usage on various
-     machines, indexed by hostname and core ID, use:
+      machines, indexed by hostname and core ID, use:
 
-      {[
-let src =
-  Src.v ~doc:"CPU usage" "cpu"  Frame.[ ("hostname", string); ("core", int)]
-    (fun () -> Data.v Frame.[("percent", int)] @@ Cpu.usage ())
-]} *)
+      {[ let src =
+           let tags = Frame.[ ("hostname", string); ("core", int)] in
+           let data () = Data.v Frame.[
+               ("percent", Data.int @@ Cpu.usage ());
+               ...
+             ] in
+           Src.v ~doc:"CPU usage" ~tags "cpu" unit data
+      ]} *)
+
+  val timer: ?doc:string -> ?tags:'a -> string -> 'a timer
+  (** Same as {!push} but create a new timer. *)
+
+  (** {2 Specializing tags} *)
+
+  val with_tags: ('a, 'b, 'c) src -> 'a
 
 end
 

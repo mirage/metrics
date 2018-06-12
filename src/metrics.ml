@@ -36,19 +36,7 @@ let is_valid name =
     true
   with Break -> false
 
-type 'a ty = {
-  pp: Format.formatter -> 'a -> unit;
-}
-
-let string = { pp = Fmt.string }
-let float = { pp = Fmt.float }
-let int = { pp = Fmt.int }
-let uint = { pp = Fmt.uint }
-let int32 = { pp = Fmt.int32 }
-let int64 = { pp = Fmt.int64 }
-let bool = { pp = Fmt.bool }
-let uint32 = { pp = Fmt.uint32 }
-let uint64 = { pp = Fmt.uint64 }
+module Tags = Set.Make(String)
 
 module Data = struct
 
@@ -57,6 +45,7 @@ module Data = struct
     fields   : (string * string) list;
   }
 
+  let domain t = Tags.of_list (List.map fst t.fields)
   type timestamp = string
   type value = string
   let string x = x
@@ -70,31 +59,11 @@ module Data = struct
   let fields t = t.fields
 end
 
-module Frame = struct
-
-  type ('a, 'b) t =
-    | []  : ('b, 'b) t
-    | (::): (string * 'a ty) * ('b, 'c) t -> ('a -> 'b, 'c) t
-
-  exception Empty
-  let empty = []
-
-  let cons s a b = (s, a) :: b
-
-  let hd: type a b c. (a -> b, c) t -> string * a ty = function
-    | h::_ -> h
-    | [] -> raise Empty
-
-  let tl: type a b c. (a -> b, c) t -> (b, c) t = function
-    | _::t -> t
-    | [] -> raise Empty
-
-end
+type tags = (string * string) list
+type fields = Data.t
 
 module Src = struct
   (* inspiration from From logs/Src *)
-
-  module Tags = Set.Make(String)
 
   type tags = {
     mutable all : bool;
@@ -107,18 +76,15 @@ module Src = struct
   type kind = [`Push | `Timer]
 
   type ('a, 'b, 'c) src = {
-    kind: 'c;
-    uid : int;
-    name: string;
-    doc : string;
-    tags: Tags.t;
-    args: ('a, 'b -> unit) Frame.t;
-    ty  : 'b ty;
-    f   : 'b -> Data.t;
+    kind  : 'c;
+    uid   : int;
+    name  : string;
+    doc   : string;
+    dom   : Tags.t;
+    tags  : 'a;
+    fields: 'b;
     mutable active: bool;
   }
-
-  type 'a timer = (int64 -> status -> unit, 'a, [`Timer]) src
 
   type t = Src: ('a, 'b, 'c) src -> t
 
@@ -132,25 +98,31 @@ module Src = struct
     if _tags.all then true
     else not (Tags.is_empty (Tags.inter _tags.tags tags))
 
-  let v ?(kind=`Push) ?(doc = "undocumented") name args ty f =
-    let rec tags: type a b. (a, b) Frame.t -> Tags.t = function
-      | Frame.([])          -> Tags.empty
-      | Frame.((n, _) :: t) ->
-        if not (is_valid n) then failwith "invalid field name";
-        Tags.add n (tags t)
-    in
-    let tags = tags args in
-    let active = active tags in
-    let src = { kind; uid = uid (); name; doc; tags; active; args; ty; f } in
+  let v kind ?(doc = "undocumented") ~tags ~fields name =
+    let dom = Data.domain tags in
+    let active = active dom in
+    let src = { kind; dom; uid = uid (); name; doc; tags; fields; active } in
     list := Src src :: !list;
     src
 
-  let update (Src s) = s.active <- active s.tags
+  let push ?doc ~tags ~fields name = v `Push ?doc ~tags ~fields name
+
+  let string_of_status = function `Ok -> "ok" | `Error -> "error"
+
+  type 'a timer = ('a, int64 -> status -> Data.t, [`Timer]) src
+
+  let timer ?doc ~tags name: 'a timer =
+    let fields i s =
+      Data.v [ ("duration", Data.int64 i); ("status", string_of_status s) ]
+    in
+    v `Timer ?doc ~tags ~fields name
+
+  let update (Src s) = s.active <- active s.dom
   let enable (Src s) = s.active <- true
   let disable (Src s) = s.active <- false
   let name (Src s) = s.name
   let doc (Src s) = s.doc
-  let tags (Src s) = Tags.elements s.tags
+  let domain (Src s) = Tags.elements s.dom
   let equal (Src src0) (Src src1) = src0.uid = src1.uid
   let compare (Src src0) (Src src1) =
     (Pervasives.compare : int -> int -> int) src0.uid src1.uid
@@ -160,6 +132,10 @@ module Src = struct
       src.name src.uid src.doc
 
   let list () = !list
+
+  let with_tags src f fields =
+    let tags, _ = f src.tags fields in { src with tags }
+
 end
 
 (* Reporters *)
@@ -193,25 +169,12 @@ let over () = ()
 let kunit _ = ()
 
 let push src f =
-  let rec aux: type a b. _ -> (b -> Data.t) -> (a, b -> unit) Frame.t -> a =
-    fun tags f -> function
-      | Frame.[] ->
-        (fun b ->
-           let tags = List.rev tags in
-           let data = f b in
-           let fields = Data.fields data in
-           let timestamp = Data.timestamp data in
-           report ~tags ~fields ?timestamp ~over src kunit)
-      | Frame.((n, t) :: r) ->
-        fun a ->
-          let tags = ((n, Fmt.to_to_string t.pp a) :: tags) in
-          aux tags f r
-  in
-  if src.active then f (aux [] src.Src.f src.Src.args)
-  else ()
+  if src.Src.active then
+    let tags, d = f src.tags src.fields in
+    let { Data.fields; timestamp } = d in
+    report ~tags ~fields ?timestamp ~over src kunit
 
-
-let with_timer (type x y) (src:'b Src.timer) (g: unit -> (x, y) result) =
+let with_timer src g =
   if not src.Src.active then g ()
   else (
     let d0 = now () in
@@ -222,13 +185,13 @@ let with_timer (type x y) (src:'b Src.timer) (g: unit -> (x, y) result) =
     let dt = Int64.sub (now ()) d0 in
     match r with
     | Ok (Ok _ as x) ->
-      push src (fun m -> m dt `Ok);
+      push src (fun t m -> t, m (dt, `Ok));
       x
     | Ok (Error _ as x) ->
-      push src (fun m -> m dt `Error);
+      push src (fun t m -> t, m (dt, `Error));
       x
     | Error (`Exn e) ->
-      push src (fun m -> m dt `Error);
+      push src (fun t m -> t, m (dt, `Error));
       raise e
   )
 

@@ -16,13 +16,20 @@
 
 let src =
   let open Metrics in
-  let tags = Frame.[("foo", int); ("bar", string)] in
-  let fields = Frame.[("toto", string); ("titi", int)] in
-  Src.v "test" ~tags ~fields int (fun f i -> f ("XXX" ^ string_of_int i) i)
+  let tags f ~foo ~bar = f @@ Data.v [
+      "foo", Data.int foo;
+      "bar", Data.string bar
+    ] in
+  let fields i =
+    Data.v [
+      "toto", Data.string ("XXX" ^ string_of_int i);
+      "titi", Data.int i
+    ] in
+  Src.v "test" ~tags ~fields
 
 let f () =
-  Metrics.v src (fun m -> m 4 "toto" 42);
-  Metrics.v src (fun m -> m 4 "toto" 43)
+  Metrics.push src (fun m -> m 4 "toto" 42);
+  Metrics.push src (fun m -> m 4 "toto" 43)
 
 let set_reporter () =
   let report ~tags ~fields ?timestamp ~over src k =
