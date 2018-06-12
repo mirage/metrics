@@ -16,9 +16,10 @@
 
 (** Metrics monitoring. *)
 
-type ('a, 'b) src
+type ('a, 'b, 'd) src
 (** The type for metric sources. A source defines a named unit for a
-   metric. The ['a] parameter is the type of the metric tags. *)
+   metric. The ['a] parameter is the type of the metric tags. TODO:
+   explain type parameters. *)
 
 type 'a ty
 (** The type for data types. *)
@@ -100,29 +101,8 @@ module Src : sig
 
   (** {1 Sources} *)
 
-  type t = Src: ('a, 'b) src -> t
+  type t = Src: ('a, 'b, 'c) src -> t
   (** The type for metric sources. *)
-
-  val create : ?doc:string -> string -> ('a, 'b -> unit) Frame.t ->
-    'b ty -> ('b -> Data.t) -> ('a, 'b) src
-  (** [create ?doc name tags] is a new metric source. [name] is the
-     name of the source; it doesn't need to be unique but it is good
-     practice to prefix the name with the name of your package or
-     library (e.g. ["mypkg.network"]). [doc] is a documentation string
-     describing the source, defaults to ["undocumented"]. [tags] is
-     the collection if (typed) tags which will be used to index the
-     metric and are used identify the various metric. The source will
-     be enabled on creation iff one of tag in [tags] has been enabled
-     with {!enable_tag}.
-
-      For instance, to create a metric to collect CPU usage on various
-     machines, indexed by hostname and core ID, use:
-
-      {[
-let src =
-  create ~doc:"CPU usage" "cpu"  Frame.["hostname", string; "core", int]
-    (fun () -> Data.v Frame.["percent", int] @@ Cpu.usage ())
-]} *)
 
   val name : t -> string
   (** [name] is [src]'s name. *)
@@ -152,6 +132,42 @@ let src =
   val list : unit -> t list
   (** [list ()] is the current exisiting source list. *)
 
+  (** {2 Creating sources} *)
+
+  type kind = [`Push | `Timer]
+  (** The type for source kind. [Push] sources can only be pushed
+     individual data points. [Timer] sources are used to gather events
+     with durations and status. *)
+
+  type status = [`Ok | `Error]
+  (** The type for event status. *)
+
+  type 'a timer = (int64 -> status -> unit, 'a, [`Timer]) src
+  (** The type for timers. The callback takes the duration of the
+     event in milliseconds (an [int64]) and the status: [Error] or
+     [Success]. *)
+
+  val v : ?kind:kind -> ?doc:string -> string -> ('a, 'b -> unit) Frame.t ->
+    'b ty -> ('b -> Data.t) -> ('a, 'b, kind) src
+  (** [v ?doc name tags] is a new metric source. [name] is the
+     name of the source; it doesn't need to be unique but it is good
+     practice to prefix the name with the name of your package or
+     library (e.g. ["mypkg.network"]). [doc] is a documentation string
+     describing the source, defaults to ["undocumented"]. [tags] is
+     the collection if (typed) tags which will be used to index the
+     metric and are used identify the various metric. The source will
+     be enabled on creation iff one of tag in [tags] has been enabled
+     with {!enable_tag}.
+
+      For instance, to create a metric to collect CPU usage on various
+     machines, indexed by hostname and core ID, use:
+
+      {[
+let src =
+  Src.v ~doc:"CPU usage" "cpu"  Frame.[ ("hostname", string); ("core", int)]
+    (fun () -> Data.v Frame.[("percent", int)] @@ Cpu.usage ())
+]} *)
+
 end
 
 val enable_tag: string -> unit
@@ -168,20 +184,24 @@ val enable_all: unit -> unit
 val disable_all: unit -> unit
 (** [disable_all ()] disables all registered metric sources. *)
 
-type ('a, 'b) metric =  ('a, 'b) src -> ('a -> unit) -> unit
+val push: ('a, 'b, [`Push]) src -> ('a -> unit) -> unit
+(** [push src f] pushes a new stream event. *)
 
-val v: ('a, 'b) metric
+val with_timer: 'a Src.timer -> (unit -> ('c, 'd) result) -> ('c, 'd) result
+(** [with_timer src f] pushed a new stream event. The duration of [f]
+   is logged as well as the kind of return (success or failure). *)
 
 (** {Reporters} *)
 
 type reporter = {
+  now: unit -> int64;
   report :
-    'a 'b 'c.
-    tags:(string * string) list ->
+    'a 'b 'c 'd.
+      tags:(string * string) list ->
     fields:(string * string) list ->
     ?timestamp:string ->
     over:(unit -> unit) ->
-    ('a, 'b) src -> (unit -> 'c) -> 'c
+    ('a, 'b, 'd) src -> (unit -> 'c) -> 'c
 }
 
 val nop_reporter: reporter

@@ -103,7 +103,11 @@ module Src = struct
 
   let _tags = { all=false; tags=Tags.empty }
 
-  type ('a, 'b) src = {
+  type status = [`Ok | `Error]
+  type kind = [`Push | `Timer]
+
+  type ('a, 'b, 'c) src = {
+    kind: 'c;
     uid : int;
     name: string;
     doc : string;
@@ -114,7 +118,9 @@ module Src = struct
     mutable active: bool;
   }
 
-  type t = Src: ('a, 'b) src -> t
+  type 'a timer = (int64 -> status -> unit, 'a, [`Timer]) src
+
+  type t = Src: ('a, 'b, 'c) src -> t
 
   let uid =
     let id = ref (-1) in
@@ -126,7 +132,7 @@ module Src = struct
     if _tags.all then true
     else not (Tags.is_empty (Tags.inter _tags.tags tags))
 
-  let create ?(doc = "undocumented") name args ty f =
+  let v ?(kind=`Push) ?(doc = "undocumented") name args ty f =
     let rec tags: type a b. (a, b) Frame.t -> Tags.t = function
       | Frame.([])          -> Tags.empty
       | Frame.((n, _) :: t) ->
@@ -135,7 +141,7 @@ module Src = struct
     in
     let tags = tags args in
     let active = active tags in
-    let src = { uid = uid (); name; doc; tags; active; args; ty; f } in
+    let src = { kind; uid = uid (); name; doc; tags; active; args; ty; f } in
     list := Src src :: !list;
     src
 
@@ -158,20 +164,22 @@ end
 
 (* Reporters *)
 
-type ('a, 'b) src = ('a, 'b) Src.src
+type ('a, 'b, 'c) src = ('a, 'b, 'c) Src.src
 
 type reporter = {
+  now: unit -> int64;
   report :
-    'a 'b 'c.
+    'a 'b 'c 'd.
     tags:(string * string) list ->
     fields:(string * string) list ->
     ?timestamp:string ->
     over:(unit -> unit) ->
-    ('a, 'b) src -> (unit -> 'c) -> 'c
+    ('a, 'b, 'd) src -> (unit -> 'c) -> 'c
 }
 
 let nop_reporter =
-  { report = fun ~tags:_ ~fields:_ ?timestamp:_ ~over _ k -> over (); k () }
+  { now = (fun () -> 0L);
+    report = fun ~tags:_ ~fields:_ ?timestamp:_ ~over _ k -> over (); k () }
 
 let _reporter = ref nop_reporter
 let set_reporter r = _reporter := r
@@ -179,12 +187,12 @@ let reporter () = !_reporter
 let report ~tags ~fields ?timestamp ~over src k =
   !_reporter.report ~tags ~fields ?timestamp ~over src k
 
-type ('a, 'b) metric =  ('a, 'b) src -> ('a -> unit) -> unit
+let now () = !_reporter.now ()
 
 let over () = ()
 let kunit _ = ()
 
-let v: type a b. (a, b) metric = fun src f->
+let push src f =
   let rec aux: type a b. _ -> (b -> Data.t) -> (a, b -> unit) Frame.t -> a =
     fun tags f -> function
       | Frame.[] ->
@@ -201,6 +209,28 @@ let v: type a b. (a, b) metric = fun src f->
   in
   if src.active then f (aux [] src.Src.f src.Src.args)
   else ()
+
+
+let with_timer (type x y) (src:'b Src.timer) (g: unit -> (x, y) result) =
+  if not src.Src.active then g ()
+  else (
+    let d0 = now () in
+    let r =
+      try Ok (g ())
+      with e -> Error (`Exn e)
+    in
+    let dt = Int64.sub (now ()) d0 in
+    match r with
+    | Ok (Ok _ as x) ->
+      push src (fun m -> m dt `Ok);
+      x
+    | Ok (Error _ as x) ->
+      push src (fun m -> m dt `Error);
+      x
+    | Error (`Exn e) ->
+      push src (fun m -> m dt `Error);
+      raise e
+  )
 
 let enable_tag t =
   Src._tags.tags <- Src.Tags.add t Src._tags.tags;

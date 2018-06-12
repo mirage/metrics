@@ -16,11 +16,9 @@
 
 let src =
   let open Metrics in
-  Src.create "test" Frame.["foo", int; "bar", string] int (fun i ->
-      Data.v [
-        "toto", Data.string ("XXX" ^ string_of_int i);
-        "titi", Data.int i
-      ])
+  let tags = Frame.[("foo", int); ("bar", string)] in
+  let fields = Frame.[("toto", string); ("titi", int)] in
+  Src.v "test" ~tags ~fields int (fun f i -> f ("XXX" ^ string_of_int i) i)
 
 let f () =
   Metrics.v src (fun m -> m 4 "toto" 42);
