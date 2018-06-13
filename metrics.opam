@@ -2,10 +2,10 @@ opam-version: "1.2"
 maintainer:   "thomas@gazagnaire.org"
 authors:      ["Thomas Gazagnaire" "Thomas Leonard"]
 license:      "ISC"
-homepage:     "https://github.com/mirage/metrics"
-bug-reports:  "https://github.com/mirage/metrics/issues"
-dev-repo:     "https://github.com/mirage/metrics.git"
-doc:          "https://mirage.github.io/metrics/"
+homepage:     "https://github.com/samoht/metrics"
+bug-reports:  "https://github.com/samoht/metrics/issues"
+dev-repo:     "https://github.com/samoht/metrics.git"
+doc:          "https://samoht.github.io/metrics/"
 
 build: [
  ["jbuilder" "subst"] {pinned}
