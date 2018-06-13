@@ -14,6 +14,25 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
+let set_reporter () =
+  let report ~tags ~fields ?timestamp ~over src k =
+    let name = Metrics.Src.name (Src src) in
+    let pp =
+      Fmt.(list ~sep:(unit ",") (pair ~sep:(unit "=") string Fmt.(quote string)))
+    in
+    let timestamp = match timestamp with
+      | Some ts -> ts
+      | None    -> Fmt.to_to_string Mtime.pp (Mtime_clock.now ())
+    in
+    Fmt.pr "%s %a %a %s\n%!" name pp tags pp fields timestamp;
+    over ();
+    k ()
+  in
+  let now () = Mtime_clock.now () |> Mtime.to_uint64_ns in
+  Metrics.set_reporter { Metrics.report; now }
+
+(********)
+
 let src =
   let open Metrics in
   let tags = Tags.[
@@ -34,25 +53,22 @@ let f i =
   Metrics.push i (fun m -> m 42);
   Metrics.push i (fun m -> m 43)
 
-let set_reporter () =
-  let report ~tags ~fields ?timestamp ~over src k =
-    let name = Metrics.Src.name (Src src) in
-    let pp =
-      Fmt.(list ~sep:(unit ",") (pair ~sep:(unit "=") string Fmt.(quote string)))
-    in
-    let timestamp = match timestamp with
-      | Some ts -> ts
-      | None    -> Fmt.to_to_string Mtime.pp (Mtime_clock.now ())
-    in
-    Fmt.pr "%s %a %a %s\n%!" name pp tags pp fields timestamp;
-    over ();
-    k ()
-  in
-  let now () = Mtime_clock.now () |> Mtime.to_uint64_ns in
-  Metrics.set_reporter { Metrics.report; now }
+let timer =
+  let open Metrics in
+  let tags = Tags.["truc", string] in
+  Src.timer "sleep" ~tags
+
+let m1 = Metrics.v timer "foo"
+let m2 = Metrics.v timer "bar"
 
 let () =
   set_reporter ();
   Metrics.enable_all ();
   f i0;
-  f i1
+  f i1;
+  let _ = Metrics.with_timer m1 (fun () -> Ok (Unix.sleep 1)) in
+  let _ =
+    try Metrics.with_timer m1 (fun () -> raise Not_found)
+    with Not_found -> Ok ()
+  in
+  ()

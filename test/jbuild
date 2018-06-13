@@ -2,7 +2,7 @@
 
 (executable
  ((name      test)
-  (libraries (metrics mtime.clock.os))))
+  (libraries (metrics mtime.clock.os unix))))
 
 (alias
  ((name runtest)
