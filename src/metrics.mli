@@ -128,13 +128,14 @@ module Tags: sig
      sources have a very low cost -- only allocating a closure.
 
       For instance, to define the tags "PID", "IP" and "host",
-      respectively of type [int], [Ipaddr.t].
+      respectively of type [int], [Ipaddr.t]:
 {[
 let ipaddr = Tags.ty Ipaddr.pp_hum
 let t = Tags.[
   "PID" , int;
   "IP"  , ipaddr;
   "host", string;
+]
 ]}
 *)
 
@@ -222,17 +223,21 @@ module Src : sig
       been enabled with {!enable_tag}.
 
       For instance, to create a metric to collect CPU and memory usage on
-      various machines, indexed by PID, hostname and IP, use:
+      various machines, indexed by [PID], [host] name and [IP] address:
 
       {[
 let src =
   let ipaddr = Tags.ty Ipaddr.pp_hum in
-  let tags = Frame.[ ("hostname", string); ("IP", ipaddr); ("PID", int) ] in
+  let tags = Frame.[
+      "host", string;
+      "IP"  , ipaddr;
+      "PID" , int
+    ] in
   let data () = Data.v [
-     "%CPU", Data.float (...);
-     "MEM" , Data.int   (...);
-   ] in
-  Src.push "top" ~tags ~data ~doc:"Information about processess"
+      "%CPU", Data.float (...);
+      "MEM" , Data.int   (...);
+    ] in
+  Src.v "top" ~tags ~data ~doc:"Information about processess"
 ]} *)
 
   (** {1 Status} *)
