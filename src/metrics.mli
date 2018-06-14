@@ -26,7 +26,7 @@
     [Metrics] is heavily inspired by
    {{:http://erratique.ch/software/logs}Logs}.
 
-   {e Release %%VERSION%% - %%MAINTAINER%% } *)
+   {e %%VERSION%% - {{:%%PKG_HOMEPAGE%% }homepage}} *)
 
 (** {1:data Data points} *)
 
