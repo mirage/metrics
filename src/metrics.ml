@@ -247,6 +247,11 @@ let run_with_result src g =
       raise e
   )
 
+let check src t =
+  if is_active src then match t with
+    | Ok _    -> add_no_check src (fun m -> m `Ok)
+    | Error _ -> add_no_check src (fun m -> m `Error)
+
 let enable_tag t =
   Src._tags.tags <- Keys.add t Src._tags.tags;
   List.iter Src.update (Src.list ())

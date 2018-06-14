@@ -61,6 +61,11 @@ let timer =
 let m1 = Metrics.v timer "foo"
 let m2 = Metrics.v timer "bar"
 
+let status =
+  let open Metrics in
+  let tags = Tags.[] in
+  v (Src.status "status" ~tags)
+
 let () =
   set_reporter ();
   Metrics.enable_all ();
@@ -71,4 +76,5 @@ let () =
     try Metrics.run m1 (fun () -> raise Not_found)
     with Not_found -> ()
   in
-  ()
+  Metrics.check status (Ok ());
+  Metrics.check status (Error ())

@@ -316,6 +316,9 @@ val run: Src.timer -> (unit -> 'a) -> 'a
 val run_with_result: Src.timer -> (unit -> ('c, 'd) result) -> ('c, 'd) result
 (** Same as {!run} but also record if the result is [Ok] or [Error]. *)
 
+val check: Src.status -> ('a, 'b) result -> unit
+(** [check s] records if [s] is a failure or a success. *)
+
 (** {1:reporter Reporters}
 
     TODO: explain and give an example
