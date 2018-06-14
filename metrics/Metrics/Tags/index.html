@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml"><head><title>Tags (metrics.Metrics.Tags)</title><link rel="stylesheet" href="../../../odoc.css"/><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><meta name="generator" content="doc-ock-html v1.0.0-1-g1fc9bf0"/></head><body><nav id="top"><a href="../index.html">Up</a> &mdash; <span class="package">package <a href="../../index.html">metrics</a></span></nav><header><h1><span class="keyword">Module</span> <span class="module-path">Metrics.Tags</span></h1></header><div class="doc"><p><code class="code">Tags</code> indexes metric sources, and allow to enable/disable data
 collection at runtime.</p></div><h2>Tags</h2><p><code class="code">Tags</code> are heterogeneous <a href="index.html#type-t">lists</a> of key names and type of values,
 which are associated to data sources. Filters on key names allow
-to select which data sources is <a href="../index.html#enabling">enabled</a> at runtime. Disabled data
+to select which data sources is <span class="xref-unresolved" title="unresolved reference to &quot;enabling&quot;">enabled</span> at runtime. Disabled data
 sources have a very low cost -- only allocating a closure.</p><p>For instance, to define the tags &quot;PID&quot;, &quot;IP&quot; and &quot;host&quot;,
 respectively of type <code class="code">int</code>, <code class="code">Ipaddr.t</code>.
 </p><pre><code class="code">let ipaddr = Tags.ty Ipaddr.pp_hum
