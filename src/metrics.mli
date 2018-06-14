@@ -18,7 +18,7 @@
 
    [Metrics] provides a basic infrastructure to monitor metrics using
    time series. {{!func}Monitoring} is performed on {{!srcs}sources}.
-   Source are indexed by {{!tags}tags}, allowing users to {{!enabling}enable} or
+   Source are indexed by {{!tags}tags}, allowing users to enable or
    disable at runtime the gathering of {{!data}data points} for specific
    sources. Metric reporting is decoupled from monitoring and is
    handled by a {{!reporter}reporter}.
@@ -164,9 +164,23 @@ let t = Tags.[
 
 end
 
-type tags = (Data.key * Data.value) list
+type tags = (string * Data.value) list
 (** The type for metric tags. Used to distinguish the various entities
    that are being measured. *)
+
+val enable_tag: string -> unit
+(** [enable_tag t] enables all the registered metric sources having
+   the tag [t]. *)
+
+val disable_tag: string -> unit
+(** [disable_tag t] disables all the registered metric sources having
+   the tag [t]. *)
+
+val enable_all: unit -> unit
+(** [enable_all ()] enables all registered metric sources. *)
+
+val disable_all: unit -> unit
+(** [disable_all ()] disables all registered metric sources. *)
 
 (** {1:srcs Metric Sources} *)
 
@@ -301,23 +315,6 @@ val run: Src.timer -> (unit -> 'a) -> 'a
 
 val run_with_result: Src.timer -> (unit -> ('c, 'd) result) -> ('c, 'd) result
 (** Same as {!run} but also record if the result is [Ok] or [Error]. *)
-
-(** {1:enabling Enabling sources} *)
-
-val enable_tag: string -> unit
-(** [enable_tag t] enables all the registered metric sources having
-   the tag [t]. *)
-
-val disable_tag: string -> unit
-(** [disable_tag t] disables all the registered metric sources having
-   the tag [t]. *)
-
-val enable_all: unit -> unit
-(** [enable_all ()] enables all registered metric sources. *)
-
-val disable_all: unit -> unit
-(** [disable_all ()] disables all registered metric sources. *)
-
 
 (** {1:reporter Reporters}
 
