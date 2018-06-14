@@ -14,20 +14,48 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-(** Metrics monitoring. *)
+(** Metrics Monitoring.
 
-(** Data points.
+   [Metrics] provides a basic infrastructure to monitor metrics using
+   time series. {{!func}Monitoring} is performed on {{!srcs}sources}.
+   Source are indexed by {{!tags}tags}, allowing users to {{!enabling}enable} or
+   disable at runtime the gathering of {{!data}data points} for specific
+   sources. Metric reporting is decoupled from monitoring and is
+   handled by a {{!reporter}reporter}.
 
-    Data points are the contents of the collected metrics; they are a
-   dataframe associated with a timestamp. *)
+    [Metrics] is heavily inspired by
+   {{:http://erratique.ch/software/logs}Logs}.
+
+   {e Release %%VERSION%% - %%MAINTAINER%% } *)
+
+(** {1:data Data points} *)
+
+(** [Data] defines what is stored in the time series. *)
 module Data: sig
 
+  (** {1 Data}
+
+      [Metric]'s data points are a list of untyped fields with an
+      optional timestamp. They are created with the {!v} and
+      {{!values}values} constructors.
+
+      For instance, to create a data point with two values ["%CPU"] and
+      ["MEM"], respectively of type [float] and [int]:
+
+      {[
+let x = Data.v [
+  "%CPU", Data.float 0.42;
+  "MEM" , Data.int 27_000;
+]
+     ]}
+  *)
+
   type t
-  (** The type for field data. *)
+  (** The type for data points. *)
 
   type timestamp = string
-  (** the timestamp shows the date and time, in RFC3339 UTC,
-     associated with particular data. *)
+  (** The type for timestamp. A timestamp shows the date and time, in
+     RFC3339 UTC, associated with particular data. *)
 
   type key = string
   (** The type for data keys. *)
@@ -35,35 +63,94 @@ module Data: sig
   type value = private string
   (** The type for individual metric values. *)
 
-  val domain: t -> string list
-  val timestamp: t -> timestamp option
-  val fields: t -> (key * value) list
+  val keys: t -> key list
+  (** [keys t] is [t]'s keys. *)
 
-  val string: string -> value
-  val int: int -> value
-  val uint: int -> value
-  val int32: int32 -> value
-  val uint32: int32 -> value
-  val int64: int64 -> value
-  val uint64: int64 -> value
-  val float: float -> value
-  val bool: bool -> value
+  val fields: t -> (key * value) list
+  (** [fields t] is [t]'s fields. *)
+
+  val timestamp: t -> timestamp option
+  (** [timestamp t] is [t]'s timestamp (if any). If it is [None], then
+     the reporter will add a new timestamp automatically. *)
 
   val v: ?timestamp:timestamp -> (key * value) list -> t
-  (** [v ?timestamp f] is the measurement [f], a the list of pairs:
-     metric name and metric value and the timestamp [timestamp]. If
-     [timestamp] is [None], it will be set be the reporter to the
-     current time.
+  (** [v ?timestamp f] is the measure [f], as a the list metric name
+     and value, and the timestamp [timestamp]. If [timestamp] is not
+     provided, it will be set be the reporter. Raise
+     [Invalid_argument] is a key or a value contains an invalid
+     character.  *)
 
-      TODO: examples
-  *)
+  (** {2:values Values} *)
+
+  val string: string -> value
+  (** [string s] is [s]. *)
+
+  val int: int -> value
+  (** [int i] is [string_of_int i]. *)
+
+  val uint: int -> value
+  (** [uint i] is [Printf.printf "%u" i]. *)
+
+  val int32: int32 -> value
+  (** [int32 i] is [Printf.printf "%l" i]. *)
+
+  val uint32: int32 -> value
+  (** [uint32 i] is [Printf.printf "%ul" i]. *)
+
+  val int64: int64 -> value
+  (** [int64 i] is [Printf.printf "%L" i]. *)
+
+  val uint64: int64 -> value
+  (** [uint64 i] is [Printf.printf "%uL" i]. *)
+
+  val float: float -> value
+  (** [uint f] is [string_of_float f]. *)
+
+  val bool: bool -> value
+  (** [uint b] is [string_of_bool b]. *)
 
 end
 
-(** Tags. *)
+type data = Data.t
+(** The type for data points. *)
+
+(** {1:tags Tags} *)
+
+(** [Tags] indexes metric sources, and allow to enable/disable data
+    collection at runtime. *)
 module Tags: sig
+
+  (** {1 Tags}
+
+      [Tags] are heterogeneous {{!t}lists} of key names and type of values,
+     which are associated to data sources. Filters on key names allow
+     to select which data sources is {{!enabling}enabled} at runtime. Disabled data
+     sources have a very low cost -- only allocating a closure.
+
+      For instance, to define the tags "PID", "IP" and "host",
+      respectively of type [int], [Ipaddr.t].
+{[
+let ipaddr = Tags.ty Ipaddr.pp_hum
+let t = Tags.[
+  "PID" , int;
+  "IP"  , ipaddr;
+  "host", string;
+]}
+*)
+
   type 'a ty
-  (** The type for data types. *)
+  (** The type for tag values. *)
+
+  (** The type tags: an heterogeneous list of names and types. *)
+  type ('a, 'b) t =
+    | []  : ('b, 'b) t
+    | (::): (string * 'a ty) * ('b, 'c) t -> ('a -> 'b, 'c) t
+
+
+  (** {2 Types} *)
+
+  val ty: 'a Fmt.t -> 'a ty
+  (** [ty pp] is a new typed tag. *)
 
   val string: string ty
   val float: float ty
@@ -75,41 +162,99 @@ module Tags: sig
   val uint64: int64 ty
   val bool: bool ty
 
-  (** The type for a typed dictionary of tags. *)
-  type ('a, 'b) t =
-    | []  : ('b, 'b) t
-    | (::): (string * 'a ty) * ('b, 'c) t -> ('a -> 'b, 'c) t
 end
 
 type tags = (Data.key * Data.value) list
 (** The type for metric tags. Used to distinguish the various entities
    that are being measured. *)
 
-type fields = Data.t
-(** The type for metric fields. The actual data being collected. *)
+(** {1:srcs Metric Sources} *)
 
-type kind = [`Push | `Timer]
-(** The kind for event source. [Push] sources can only be pushed
-   individual data points. [Timer] sources are used to gather events
-   with durations and status. *)
+type kind = [`Any | `Timer | `Status]
+(** The kind for metric sources. Arbitrary data points can be added to
+   [`Any] sources. [`Timer] sources can gather data points containing
+   duration information. [`Status] sources can only gather
+   information about success/errors. *)
 
 type ('a, 'b, 'c) src constraint 'c = [< kind]
 (** The type for metric sources. A source defines a named unit for a
-   metric. ['a] is the type of the function used to create new
-   {!fields}. ['b] is the type of the function used to create new
-   {!tags}. ['c] is the kind of metrics (See {!Src.kind}). *)
+   time series. ['a] is the type of the function used to create new
+   {{!data}data points}. ['b] is the type of the function used to
+   create new {!tags}. ['c] is the kind of metrics (See {!kind}). *)
 
-type ('a, 'b) inst constraint 'b = [< kind]
-(** The type for source instances. These instances are built from
-   {{!src}sources} for are used to generate tagged data. *)
+type ('a, 'b) t constraint 'b = [< kind]
+(** The type for metric sources, whose tags have been fully
+   resolved. *)
 
-(** Data sources. *)
+(** Metric sources. *)
 module Src : sig
 
   (** {1 Sources} *)
 
+  val v:
+    ?doc:string ->
+    tags:('a, ('b, [`Any]) t) Tags.t ->
+    data:'b ->
+    string -> ('a, 'b, [`Any]) src
+  (** [v ?doc ~tags name] is a new source, accepting arbitrary data points.
+      [name] is the name
+      of the source; it doesn't need to be unique but it is good
+      practice to prefix the name with the name of your package or
+      library (e.g. ["mypkg.network"]). [doc] is a documentation string
+      describing the source, defaults to ["undocumented"]. [tags] is
+      the collection if (typed) tags which will be used to tag and
+      index the measure and are used identify the various metrics. The
+      source will be enabled on creation iff one of tag in [tags] has
+      been enabled with {!enable_tag}.
+
+      For instance, to create a metric to collect CPU and memory usage on
+      various machines, indexed by PID, hostname and IP, use:
+
+      {[
+let src =
+  let ipaddr = Tags.ty Ipaddr.pp_hum in
+  let tags = Frame.[ ("hostname", string); ("IP", ipaddr); ("PID", int) ] in
+  let data () = Data.v [
+     "%CPU", Data.float (...);
+     "MEM" , Data.int   (...);
+   ] in
+  Src.push "top" ~tags ~data ~doc:"Information about processess"
+]} *)
+
+  (** {1 Status} *)
+
+  type result = [`Ok | `Error]
+  (** The type for result events. *)
+
+  type 'a status_src = ('a, result -> Data.t, [`Status]) src
+  (** The type for status sources. *)
+
+  type status = (result -> Data.t, [`Status]) t
+  (** The type for status sources whose tags have been fully resolved. *)
+
+  val status: ?doc:string -> tags:('a, status) Tags.t -> string -> 'a status_src
+  (** Same as {!v} but create a new status source. *)
+
+  (** {1 Timers} *)
+
+  type 'a timer_src = ('a, int64 -> result -> Data.t, [`Timer]) src
+  (** The type for timer sources. The callback takes the duration of
+      the event in milliseconds (an [int64]) and the status: [Error] or
+      [Success]. *)
+
+  type timer = (int64 -> result -> Data.t, [`Timer]) t
+  (** The type for timer source, whose tags have been fully resolved. *)
+
+  val timer: ?doc:string -> tags:('a, timer) Tags.t -> string -> 'a timer_src
+  (** Same as {!v} but create a new timer source. *)
+
+  (** {1 Listing Sources} *)
+
   type t = Src: ('a, 'b, 'c) src -> t
   (** The type for metric sources. *)
+
+  val list : unit -> t list
+  (** [list ()] is the current exisiting source list. *)
 
   val name : t -> string
   (** [name src] is [src]'s name. *)
@@ -129,7 +274,7 @@ module Src : sig
   val compare : t -> t -> int
   (** [compare src src'] is a total order on sources. *)
 
-  val pp : Format.formatter -> t -> unit
+  val pp : t Fmt.t
   (** [pp ppf src] prints an unspecified representation of [src] on
       [ppf]. *)
 
@@ -139,65 +284,25 @@ module Src : sig
   val disable: t -> unit
   (** [disable src] disables the metric source [src]. *)
 
-  val list : unit -> t list
-  (** [list ()] is the current exisiting source list. *)
-
-  (** {2 Creating sources} *)
-
-  val push:
-    ?doc:string ->
-    tags:('a, ('b, [`Push]) inst) Tags.t ->
-    fields:'b ->
-    string -> ('a, 'b, [`Push]) src
-  (** [push ?doc ~tags name] is a new push source. [name] is the name
-     of the source; it doesn't need to be unique but it is good
-     practice to prefix the name with the name of your package or
-     library (e.g. ["mypkg.network"]). [doc] is a documentation string
-     describing the source, defaults to ["undocumented"]. [tags] is
-     the collection if (typed) tags which will be used to tag and
-     index the measure and are used identify the various metrics. The
-     source will be enabled on creation iff one of tag in [tags] has
-     been enabled with {!enable_tag}.
-
-      For instance, to create a metric to collect CPU usage on various
-     machines, indexed by hostname and core ID, use:
-
-      {[ let src = let tags = Frame.[ ("hostname", string); ("core",
-     int)] in let data () = Data.v Frame.[ ("percent", Data.int @@
-     Cpu.usage ()); ...  ] in Src.v ~doc:"CPU usage" ~tags "cpu" unit
-     data ]} *)
-
-  (** {2 Timers} *)
-
-  type status = [`Ok | `Error]
-  (** The type for event status. *)
-
-  type 'a timer_src = ('a, int64 -> status -> Data.t, [`Timer]) src
-  (** The type for timer sources. The callback takes the duration of
-     the event in milliseconds (an [int64]) and the status: [Error] or
-     [Success]. *)
-
-  type timer = (int64 -> status -> Data.t, [`Timer]) inst
-  (** The type for timer instances. *)
-
-  val timer: ?doc:string -> tags:('a, timer) Tags.t -> string -> 'a timer_src
-  (** Same as {!push} but create a new timer. *)
-
 end
 
-(** {2 Source Instances} *)
+(** {1:func Metric functions} *)
 
 val v: ('a, 'b, 'c) src -> 'a
-(** Prepare a source instance. *)
+(** [v src t1 ... tn] resolves [src]'s tags with the values [t1], ... [tn]. *)
 
-val push: ('a, [`Push]) inst -> ('a -> fields) -> unit
-(** [push src f] pushes a new stream event. *)
+val add: ('a, [`Any]) t -> ('a -> data) -> unit
+(** [add src f] adds a new data point to [src]. *)
 
-val with_timer: Src.timer -> (unit -> ('c, 'd) result) -> ('c, 'd) result
-(** [with_timer src f] pushed a new stream event. The duration of [f]
-   is logged as well as the kind of return (success or failure). *)
+val run: Src.timer -> (unit -> 'a) -> 'a
+(** [run src f] runs [f ()] and records in a new data point the time
+   it took. [run] will also record the status of the computation,
+   e.g. whether an exception has been raised. *)
 
-(** {2 Enabling sources} *)
+val run_with_result: Src.timer -> (unit -> ('c, 'd) result) -> ('c, 'd) result
+(** Same as {!run} but also record if the result is [Ok] or [Error]. *)
+
+(** {1:enabling Enabling sources} *)
 
 val enable_tag: string -> unit
 (** [enable_tag t] enables all the registered metric sources having
@@ -214,8 +319,12 @@ val disable_all: unit -> unit
 (** [disable_all ()] disables all registered metric sources. *)
 
 
-(** {Reporters} *)
+(** {1:reporter Reporters}
 
+    TODO: explain and give an example
+*)
+
+(** The type for reporters. *)
 type reporter = {
   now: unit -> int64;
   report :
@@ -232,7 +341,9 @@ val nop_reporter: reporter
     does nothing if a metric gets reported. *)
 
 val reporter: unit -> reporter
-(** [reporter ()] is the current repporter. *)
+(** [reporter ()] is the current reporter. *)
 
 val set_reporter: reporter -> unit
 (** [set_reporter r] sets the current reporter to [r]. *)
+
+(** TODO *)

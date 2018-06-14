@@ -14,34 +14,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-module Chars = Set.Make(struct
-    type t = char
-    let compare = compare
-  end)
-
-let valid_chars =
-  (* "^[a-zA-Z0-9_]+$" *)
-  let s = "abcdefghijklmnopqerstuwzyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_." in
-  let cs = ref Chars.empty in
-  String.iter (fun c -> cs := Chars.add c !cs) s;
-  !cs
-
-exception Break
-
-let is_valid name =
-  try
-    String.iter (fun c ->
-        if not (Chars.mem c valid_chars) then raise Break
-      ) name;
-    true
-  with Break -> false
-
 module Keys = Set.Make(String)
 
 module Tags = struct
 
   type 'a ty = { pp: Format.formatter -> 'a -> unit }
-
+  let ty pp = { pp }
   let string = { pp = Fmt.string }
   let float = { pp = Fmt.float }
   let int = { pp = Fmt.int }
@@ -60,8 +38,6 @@ module Tags = struct
     | [] -> Keys.empty
     | (h, _) :: t -> Keys.add h (domain t)
 
-  let is_valid t = Keys.for_all is_valid (domain t)
-
 end
 
 module Data = struct
@@ -71,7 +47,7 @@ module Data = struct
     fields   : (string * string) list;
   }
 
-  let domain t = List.map fst t.fields
+  let keys t = List.map fst t.fields
   type timestamp = string
   type key = string
   type value = string
@@ -84,13 +60,13 @@ module Data = struct
   let uint64 = Printf.sprintf "%Lu"
   let float = string_of_float
   let bool = string_of_bool
-  let v ?timestamp fields = { timestamp; fields }
   let timestamp t = t.timestamp
   let fields t = t.fields
+  let v ?timestamp fields = { timestamp; fields }
 end
 
 type tags = (Data.key * Data.value) list
-type fields = Data.t
+type data = Data.t
 
 module Src = struct
   (* inspiration from From logs/Src *)
@@ -102,17 +78,16 @@ module Src = struct
 
   let _tags = { all=false; tags=Keys.empty }
 
-  type status = [`Ok | `Error]
-  type kind = [`Push | `Timer]
+  type kind = [`Any | `Timer | `Status]
 
   type ('a, 'b, 'c) src = {
-    kind  : 'c;
-    uid   : int;
-    name  : string;
-    doc   : string;
-    dom   : Keys.t;
-    tags  : ('a, ('b, 'c) inst) Tags.t;
-    fields: 'b;
+    kind: 'c;
+    uid : int;
+    name: string;
+    doc : string;
+    dom : Keys.t;
+    tags: ('a, ('b, 'c) inst) Tags.t;
+    data: 'b;
     mutable active: bool;
   }
 
@@ -133,28 +108,34 @@ module Src = struct
     if _tags.all then true
     else not (Keys.is_empty (Keys.inter _tags.tags tags))
 
-  let create kind ?(doc = "undocumented") ~tags ~fields name =
-    if not (Tags.is_valid tags) then
-      Fmt.failwith "invalid tags"; (* TODO: which tag? *)
+  let create kind ?(doc = "undocumented") ~tags ~data name =
     let dom = Tags.domain tags in
     let active = active dom in
-    let src = { kind; dom; uid = uid (); name; doc; tags; fields; active } in
+    let src = { kind; dom; uid = uid (); name; doc; tags; data; active } in
     list := Src src :: !list;
     src
 
-  let push ?doc ~tags ~fields name = create `Push ?doc ~tags ~fields name
+  let v ?doc ~tags ~data name = create `Any ?doc ~tags ~data name
 
-  let string_of_status = function `Ok -> "ok" | `Error -> "error"
+  let string_of_result = function `Ok -> "ok" | `Error -> "error"
 
-  type 'a timer_src = ('a, int64 -> status -> Data.t, [`Timer]) src
+  type result = [`Ok | `Error]
+  type 'a status_src = ('a, result -> Data.t, [`Status]) src
+  type status = (result -> Data.t, [`Status]) inst
+  type 'a timer_src = ('a, int64 -> result -> Data.t, [`Timer]) src
+  type timer = (int64 -> result -> Data.t, [`Timer]) inst
 
-  type timer = (int64 -> status -> Data.t, [`Timer]) inst
+  let status ?doc ~tags name: 'a status_src =
+    let data s =
+      Data.v [ ("status", string_of_result s) ]
+    in
+    create `Status ?doc ~tags ~data name
 
   let timer ?doc ~tags name: 'a timer_src =
-    let fields i s =
-      Data.v [ ("duration", Data.int64 i); ("status", string_of_status s) ]
+    let data i s =
+      Data.v [ ("duration", Data.int64 i); ("status", string_of_result s) ]
     in
-    create `Timer ?doc ~tags ~fields name
+    create `Timer ?doc ~tags ~data name
 
   let update (Src s) = s.active <- active s.dom
   let enable (Src s) = s.active <- true
@@ -177,7 +158,7 @@ end
 
 type kind = Src.kind
 type ('a, 'b, 'c) src = ('a, 'b, 'c) Src.src constraint 'c = [< kind]
-type ('a, 'b) inst = ('a, 'b) Src.inst constraint 'b = [< kind]
+type ('a, 'b) t = ('a, 'b) Src.inst constraint 'b = [< kind]
 
 let v: type a b c. (a, b, c) Src.src -> a = fun src ->
   let rec aux: type a. tags -> (a, (b, c) Src.inst) Tags.t -> a =
@@ -219,14 +200,33 @@ let kunit _ = ()
 
 let is_active (Src.Inst src) = src.src.Src.active
 
-let push (Src.Inst src) f =
-  if src.src.Src.active then
-    let tags = src.tags in
-    let d = f src.src.fields in
-    let { Data.fields; timestamp } = d in
-    report ~tags ~fields ?timestamp ~over src.src kunit
+let add_no_check (Src.Inst src) f =
+  let tags = src.tags in
+  let d = f src.src.data in
+  let { Data.fields; timestamp } = d in
+  report ~tags ~fields ?timestamp ~over src.src kunit
 
-let with_timer src g =
+let add src f = if is_active src then add_no_check src f
+
+let run src g =
+  if not (is_active src) then g ()
+  else (
+    let d0 = now () in
+    let r =
+      try Ok (g ())
+      with e -> Error (`Exn e)
+    in
+    let dt = Int64.sub (now ()) d0 in
+    match r with
+    | Ok x ->
+      add_no_check src (fun m -> m dt `Ok);
+      x
+    | Error (`Exn e) ->
+      add_no_check src (fun m -> m dt `Error);
+      raise e
+  )
+
+let run_with_result src g =
   if not (is_active src) then g ()
   else (
     let d0 = now () in
@@ -237,13 +237,13 @@ let with_timer src g =
     let dt = Int64.sub (now ()) d0 in
     match r with
     | Ok (Ok _ as x) ->
-      push src (fun m -> m dt `Ok);
+      add_no_check src (fun m -> m dt `Ok);
       x
     | Ok (Error _ as x) ->
-      push src (fun m -> m dt `Error);
+      add_no_check src (fun m -> m dt `Error);
       x
     | Error (`Exn e) ->
-      push src (fun m -> m dt `Error);
+      add_no_check src (fun m -> m dt `Error);
       raise e
   )
 
