@@ -331,8 +331,8 @@ let src =
   val doc : t -> string
   (** [doc src] is [src]'s documentation string. *)
 
-  val domain : t -> string list
-  (** [domain src] is the list of tags of [src] (if any).  *)
+  val tags : t -> string list
+  (** [tags src] is the list of [src]'s tag names.  *)
 
   val equal : t -> t -> bool
   (** [equal src src'] is [true] iff [src] and [src'] are the same source. *)
@@ -380,10 +380,10 @@ val check: Src.status -> ('a, 'b) result -> unit
 
 (** The type for reporters. *)
 type reporter = {
-  now: unit -> int64;
-  report :
-    'a 'b 'c 'd. tags:tags -> data:data -> over:(unit -> unit) ->
-    ('a, 'b, 'd) src -> (unit -> 'c) -> 'c
+  now   : unit -> int64;
+  report:
+    'a. tags:tags -> data:data -> over:(unit -> unit) ->
+    Src.t -> (unit -> 'a) -> 'a
 }
 
 val nop_reporter: reporter

@@ -177,7 +177,7 @@ module Src = struct
   let kind (Src s) = (s.kind :> kind)
   let name (Src s) = s.name
   let doc (Src s) = s.doc
-  let domain (Src s) = Keys.elements s.dom
+  let tags (Src s) = Keys.elements s.dom
   let equal (Src src0) (Src src1) = src0.uid = src1.uid
   let compare (Src src0) (Src src1) =
     (Pervasives.compare : int -> int -> int) src0.uid src1.uid
@@ -209,8 +209,8 @@ let v: type a b c. (a, b, c) Src.src -> a = fun src ->
 type reporter = {
   now: unit -> int64;
   report :
-    'a 'b 'c 'd.  tags:tags -> data:data -> over:(unit -> unit) ->
-    ('a, 'b, 'd) src -> (unit -> 'c) -> 'c
+    'a.  tags:tags -> data:data -> over:(unit -> unit) -> Src.t ->
+    (unit -> 'a) -> 'a
 }
 
 let nop_reporter =
@@ -232,7 +232,7 @@ let is_active (Src.Inst src) = src.src.Src.active
 let add_no_check (Src.Inst src) f =
   let tags = src.tags in
   let data = f src.src.data in
-  report ~tags ~data ~over src.src kunit
+  report ~tags ~data ~over (Src src.src) kunit
 
 let add src f = if is_active src then add_no_check src f
 
