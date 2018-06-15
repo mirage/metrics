@@ -1,9 +1,15 @@
 (executable
  ((name      test)
+  (modules   (Test))
   (libraries (metrics mtime.clock.os unix))))
+
+(executable
+ ((name      runtime)
+  (modules   (Runtime))
+  (libraries (metrics mtime.clock.os cstruct unix))))
 
 (alias
  ((name runtest)
-  (deps (test.exe))
+  (deps (test.exe runtime.exe))
   (package metrics)
   (action (run ${exe:test.exe}))))
