@@ -14,10 +14,14 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-let set_reporter () =
+(*************)
+(* Reporters *)
+(*************)
+
+let set_simple_reporter () =
   let report ~tags ~data ~over src k =
     let data_fields = Metrics.Data.fields data in
-    let name = Metrics.Src.name (Src src) in
+    let name = Metrics.Src.name src in
     let pp_field ppf f =
       Fmt.(pair ~sep:(unit "=") Metrics.pp_key Metrics.pp_value) ppf (f, f)
     in
@@ -33,7 +37,9 @@ let set_reporter () =
   let now () = Mtime_clock.now () |> Mtime.to_uint64_ns in
   Metrics.set_reporter { Metrics.report; now }
 
-(********)
+(*************)
+(*   Tests   *)
+(*************)
 
 let src =
   let open Metrics in
@@ -68,9 +74,8 @@ let status =
   let tags = Tags.[] in
   v (Src.status "status" ~tags)
 
-let () =
-  set_reporter ();
-  Metrics.enable_all ();
+
+let run () =
   f i0;
   f i1;
   let _ = Metrics.run_with_result m1 (fun () -> Ok (Unix.sleep 1)) in
@@ -80,3 +85,8 @@ let () =
   in
   Metrics.check status (Ok ());
   Metrics.check status (Error ())
+
+let () =
+  Metrics.enable_all ();
+  set_simple_reporter ();
+  run ();

@@ -1,5 +1,3 @@
-(jbuild_version 1)
-
 (library
  ((name        metrics)
   (public_name metrics)

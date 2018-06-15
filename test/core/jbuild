@@ -1,5 +1,3 @@
-(jbuild_version 1)
-
 (executable
  ((name      test)
   (libraries (metrics mtime.clock.os unix))))
@@ -7,4 +5,5 @@
 (alias
  ((name runtest)
   (deps (test.exe))
+  (package metrics)
   (action (run ${exe:test.exe}))))
