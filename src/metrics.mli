@@ -17,16 +17,19 @@
 (** Metrics Monitoring.
 
    [Metrics] provides a basic infrastructure to monitor metrics using
-   time series. {{!func}Monitoring} is performed on {{!srcs}sources}.
-   Source are indexed by {{!tags}tags}, allowing users to enable or
-   disable at runtime the gathering of {{!data}data points} for
-   specific sources. Both sources and data-points are built
-   {{!fields}fields}: a collection of typed entries. Metric reporting
-   is decoupled from monitoring and is handled by a
-   {{!reporter}reporter}.
+   time series. {{!func}Monitoring} is performed on {{!srcs}sources},
+   indexed by {{!tags}tags}. Tags allow users to select at runtime
+   which metric sources is producing data points. Disabled
+   data-sources have a low runtime cost (only a closure allocation)
+   which make [Metrics] suitable to instrument production systems.
+
+    Both sources tags and data-points are built using dictionaries of
+   typed entries called {{!fields}fields}.
 
     [Metrics] is heavily inspired by
-   {{:http://erratique.ch/software/logs}Logs}.
+   {{:http://erratique.ch/software/logs}Logs} as it decouples metric
+   reporting is from metric monitoring. This is handled by custom
+   {{!reporter}reporters}.
 
    {e %%VERSION%% - {{:%%PKG_HOMEPAGE%% }homepage}} *)
 
@@ -236,11 +239,14 @@ type ('a, 'b, 'c) src constraint 'c = [< kind]
 (** The type for metric sources. A source defines a named unit for a
    time series. ['a] is the type of the function used to create new
    {{!data}data points}. ['b] is the type of the function used to
-   create new {!tags}. ['c] is the kind of metrics (See {!kind}). *)
+   create new {!tags}. ['c] is the kind of metrics (See {!kind}).
+
+    A source needs to be {{!v}tagged} before being available to
+   produce data-points.  *)
 
 type ('a, 'b) t constraint 'b = [< kind]
-(** The type for metric sources, whose tags have been fully
-   resolved. *)
+(** The type for tagged metric sources. Such sources can be used to
+   produce data-points. *)
 
 (** Metric sources. *)
 module Src : sig
@@ -290,7 +296,7 @@ let src =
   (** The type for status sources. *)
 
   type status = (result -> Data.t, [`Status]) t
-  (** The type for status sources whose tags have been fully resolved. *)
+  (** The type for tagged status sources. *)
 
   val status: ?doc:string -> tags:('a, status) Tags.t -> string -> 'a status_src
   (** Same as {!v} but create a new status source. *)
@@ -303,7 +309,7 @@ let src =
       [Success]. *)
 
   type timer = (int64 -> result -> Data.t, [`Timer]) t
-  (** The type for timer source, whose tags have been fully resolved. *)
+  (** The type for tagged timer source. *)
 
   val timer: ?doc:string -> tags:('a, timer) Tags.t -> string -> 'a timer_src
   (** Same as {!v} but create a new timer source. *)
@@ -349,7 +355,9 @@ end
 (** {1:func Metric functions} *)
 
 val v: ('a, 'b, 'c) src -> 'a
-(** [v src t1 ... tn] resolves [src]'s tags with the values [t1], ... [tn]. *)
+(** [v src t1 ... tn] resolves [src]'s tags with the values [t1],
+   ... [tn]. Once all the tag values are provided, the metric source
+   become {{!t}tagged}. *)
 
 val add: ('a, [`Any]) t -> ('a -> data) -> unit
 (** [add src f] adds a new data point to [src]. *)
