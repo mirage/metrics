@@ -6,7 +6,7 @@
 (executable
  ((name      runtime)
   (modules   (Runtime))
-  (libraries (metrics mtime.clock.os cstruct unix))))
+  (libraries (metrics mtime.clock.os astring unix))))
 
 (alias
  ((name runtest)
