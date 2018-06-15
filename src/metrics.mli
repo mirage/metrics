@@ -19,14 +19,90 @@
    [Metrics] provides a basic infrastructure to monitor metrics using
    time series. {{!func}Monitoring} is performed on {{!srcs}sources}.
    Source are indexed by {{!tags}tags}, allowing users to enable or
-   disable at runtime the gathering of {{!data}data points} for specific
-   sources. Metric reporting is decoupled from monitoring and is
-   handled by a {{!reporter}reporter}.
+   disable at runtime the gathering of {{!data}data points} for
+   specific sources. Both sources and data-points are built
+   {{!fields}fields}: a collection of typed entries. Metric reporting
+   is decoupled from monitoring and is handled by a
+   {{!reporter}reporter}.
 
     [Metrics] is heavily inspired by
    {{:http://erratique.ch/software/logs}Logs}.
 
    {e %%VERSION%% - {{:%%PKG_HOMEPAGE%% }homepage}} *)
+
+(** {1:fields Fields *)
+
+type field
+(** The type for metric fields. *)
+
+type key = string
+(** The type for field keys. *)
+
+val string: key -> string -> field
+(** [string k v] is the field whose key is [k] and value is [v]. *)
+
+val int: key -> int -> field
+(** [int k i] is the field whose key is [k] and value is [i]. *)
+
+val uint: key -> int -> field
+(** [uint k i] is the field whose key is [k] and value is [i]. *)
+
+val int32: key -> int32 -> field
+(** [int32 k i] is the field whose key is [k] and value is [i]. *)
+
+val uint32: key -> int32 -> field
+(** [uint32 k i] is the field whose key is [k] and value is [i]. *)
+
+val int64: key -> int64 -> field
+(** [int64 k i] is the field whose key is [k] and value is [i]. *)
+
+val uint64: key -> int64 -> field
+(** [uint64 k i] is the field whose key is [k] and value is [i]. *)
+
+val float: key -> float -> field
+(** [uint k f] is the field whose key is [k] and value is [i]. *)
+
+val bool: key -> bool -> field
+(** [uint k b] is the field whose key is [k] and value is [i]. *)
+
+(** {2 Custom fields} *)
+
+(** The type of supported values in metric fields. *)
+type 'a ty =
+  | String: string ty
+  | Bool: bool ty
+  | Float: float ty
+  | Int: int ty
+  | Int32: int32 ty
+  | Int64: int64 ty
+  | Uint: int ty
+  | Uint32: int32 ty
+  | Uint64: int64 ty
+  | Other: 'a Fmt.t -> 'a ty
+
+val field: string -> 'a ty -> 'a -> field
+(** [field k ty v] is the field whose key is [k], value type is [ty] and
+    value is [v]. *)
+
+(** {2 Reading Fields} *)
+
+val key: field -> string
+(** [key f] is [f]'s key. *)
+
+type value = V: 'a ty * 'a -> value
+(** Type for values. *)
+
+val value: field -> value
+(** [value f] is [f]'s value. *)
+
+(** {2 Pretty-printing Fields} *)
+
+val pp_key: field Fmt.t
+(** [pp_key] is the pretty-printer for field keys. *)
+
+val pp_value: field Fmt.t
+(** [pp_value] is the pretty-printer for field values, using
+     sensible default. *)
 
 (** {1:data Data points} *)
 
@@ -35,17 +111,17 @@ module Data: sig
 
   (** {1 Data}
 
-      [Metric]'s data points are a list of untyped fields with an
+      [Metric]'s data points are a list of typed fields with an
       optional timestamp. They are created with the {!v} and
-      {{!values}values} constructors.
+      {{!fields}field} constructors.
 
       For instance, to create a data point with two values ["%CPU"] and
       ["MEM"], respectively of type [float] and [int]:
 
       {[
 let x = Data.v [
-  "%CPU", Data.float 0.42;
-  "MEM" , Data.int 27_000;
+  float "%CPU" 0.42;
+  int   "MEM"  27_000;
 ]
      ]}
   *)
@@ -57,57 +133,22 @@ let x = Data.v [
   (** The type for timestamp. A timestamp shows the date and time, in
      RFC3339 UTC, associated with particular data. *)
 
-  type key = string
-  (** The type for data keys. *)
-
-  type value = private string
-  (** The type for individual metric values. *)
-
-  val keys: t -> key list
-  (** [keys t] is [t]'s keys. *)
-
-  val fields: t -> (key * value) list
-  (** [fields t] is [t]'s fields. *)
-
   val timestamp: t -> timestamp option
   (** [timestamp t] is [t]'s timestamp (if any). If it is [None], then
      the reporter will add a new timestamp automatically. *)
 
-  val v: ?timestamp:timestamp -> (key * value) list -> t
+  val v: ?timestamp:timestamp -> field list -> t
   (** [v ?timestamp f] is the measure [f], as a the list metric name
      and value, and the timestamp [timestamp]. If [timestamp] is not
      provided, it will be set be the reporter. Raise
      [Invalid_argument] is a key or a value contains an invalid
      character.  *)
 
-  (** {2:values Values} *)
+  val keys: t -> key list
+  (** [keys t] is [t]'s keys. *)
 
-  val string: string -> value
-  (** [string s] is [s]. *)
-
-  val int: int -> value
-  (** [int i] is [string_of_int i]. *)
-
-  val uint: int -> value
-  (** [uint i] is [Printf.printf "%u" i]. *)
-
-  val int32: int32 -> value
-  (** [int32 i] is [Printf.printf "%l" i]. *)
-
-  val uint32: int32 -> value
-  (** [uint32 i] is [Printf.printf "%ul" i]. *)
-
-  val int64: int64 -> value
-  (** [int64 i] is [Printf.printf "%L" i]. *)
-
-  val uint64: int64 -> value
-  (** [uint64 i] is [Printf.printf "%uL" i]. *)
-
-  val float: float -> value
-  (** [uint f] is [string_of_float f]. *)
-
-  val bool: bool -> value
-  (** [uint b] is [string_of_bool b]. *)
+  val fields: t -> field list
+  (** [fields t] is [t]'s fields. *)
 
 end
 
@@ -130,42 +171,42 @@ module Tags: sig
       For instance, to define the tags "PID", "IP" and "host",
       respectively of type [int], [Ipaddr.t]:
 {[
-let ipaddr = Tags.ty Ipaddr.pp_hum
+let ipaddr = Tags.v Ipaddr.pp_hum
 let t = Tags.[
-  "PID" , int;
-  "IP"  , ipaddr;
-  "host", string;
+  int    "PID" ;
+  ipaddr "IP"  ;
+  string "host";
 ]
 ]}
 *)
 
-  type 'a ty
+  type 'a v
   (** The type for tag values. *)
 
   (** The type tags: an heterogeneous list of names and types. *)
   type ('a, 'b) t =
     | []  : ('b, 'b) t
-    | (::): (string * 'a ty) * ('b, 'c) t -> ('a -> 'b, 'c) t
+    | (::): ('a v) * ('b, 'c) t -> ('a -> 'b, 'c) t
 
 
   (** {2 Types} *)
 
-  val ty: 'a Fmt.t -> 'a ty
+  val v: 'a Fmt.t -> string -> 'a v
   (** [ty pp] is a new typed tag. *)
 
-  val string: string ty
-  val float: float ty
-  val int: int ty
-  val uint: int ty
-  val int32: int32 ty
-  val uint32: int32 ty
-  val int64: int64 ty
-  val uint64: int64 ty
-  val bool: bool ty
+  val string: string -> string v
+  val float: string -> float v
+  val int: string -> int v
+  val uint: string -> int v
+  val int32: string -> int32 v
+  val uint32: string -> int32 v
+  val int64: string -> int64 v
+  val uint64: string -> int64 v
+  val bool: string -> bool v
 
 end
 
-type tags = (string * Data.value) list
+type tags = field list
 (** The type for metric tags. Used to distinguish the various entities
    that are being measured. *)
 
@@ -227,15 +268,15 @@ module Src : sig
 
       {[
 let src =
-  let ipaddr = Tags.ty Ipaddr.pp_hum in
-  let tags = Frame.[
-      "host", string;
-      "IP"  , ipaddr;
-      "PID" , int
+  let ipaddr = Tags.v Ipaddr.pp_hum in
+  let tags = Tags.[
+      string "host";
+      ipaddr "IP"  ;
+      int    "PID" ;
     ] in
   let data () = Data.v [
-      "%CPU", Data.float (...);
-      "MEM" , Data.int   (...);
+      float "%CPU" (...);
+      int   "MEM"  (...);
     ] in
   Src.v "top" ~tags ~data ~doc:"Information about processess"
 ]} *)
@@ -333,11 +374,7 @@ val check: Src.status -> ('a, 'b) result -> unit
 type reporter = {
   now: unit -> int64;
   report :
-    'a 'b 'c 'd.
-      tags:(string * string) list ->
-    fields:(string * string) list ->
-    ?timestamp:string ->
-    over:(unit -> unit) ->
+    'a 'b 'c 'd. tags:tags -> data:data -> over:(unit -> unit) ->
     ('a, 'b, 'd) src -> (unit -> 'c) -> 'c
 }
 
