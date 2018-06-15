@@ -213,11 +213,11 @@ type tags = field list
 (** The type for metric tags. Used to distinguish the various entities
    that are being measured. *)
 
-val enable_tag: string -> unit
+val enable_tag: key -> unit
 (** [enable_tag t] enables all the registered metric sources having
    the tag [t]. *)
 
-val disable_tag: string -> unit
+val disable_tag: key -> unit
 (** [disable_tag t] disables all the registered metric sources having
    the tag [t]. *)
 

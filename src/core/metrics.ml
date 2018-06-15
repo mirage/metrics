@@ -171,7 +171,6 @@ module Src = struct
     let data i s = Data.v [ duration_f i; status_f s ] in
     create `Timer ?doc ~tags ~data name
 
-  let update (Src s) = s.active <- active s.dom
   let enable (Src s) = s.active <- true
   let disable (Src s) = s.active <- false
   let kind (Src s) = (s.kind :> kind)
@@ -187,6 +186,7 @@ module Src = struct
       src.name src.uid src.doc
 
   let list () = !list
+  let update () = List.iter (fun (Src s) -> s.active <- active s.dom) (list ())
 
 end
 
@@ -282,17 +282,17 @@ let check src t =
 
 let enable_tag t =
   Src._tags.tags <- Keys.add t Src._tags.tags;
-  List.iter Src.update (Src.list ())
+  Src.update ()
 
 let disable_tag t =
   Src._tags.tags <- Keys.remove t Src._tags.tags;
-  List.iter Src.update (Src.list ())
+  Src.update ()
 
 let enable_all () =
   Src._tags.all <- true;
-  List.iter Src.update (Src.list ())
+  Src.update ()
 
 let disable_all () =
   Src._tags.all <- false;
   Src._tags.tags <- Keys.empty;
-  List.iter Src.update (Src.list ())
+  Src.update ()
