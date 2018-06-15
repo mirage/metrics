@@ -1,0 +1,9 @@
+(executable
+ ((name      test)
+  (libraries (metrics-unix mtime.clock.os unix))))
+
+(alias
+ ((name runtest)
+  (deps (test.exe))
+  (package metrics-unix)
+  (action (run ${exe:test.exe}))))

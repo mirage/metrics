@@ -7,4 +7,4 @@ clean:
 	jbuilder clean
 
 test:
-	jbuilder runtest --dev
+	jbuilder runtest --dev --force

@@ -1,0 +1,21 @@
+opam-version: "1.2"
+maintainer:   "thomas@gazagnaire.org"
+authors:      ["Thomas Gazagnaire"]
+license:      "ISC"
+homepage:     "https://github.com/samoht/metrics"
+bug-reports:  "https://github.com/samoht/metrics/issues"
+dev-repo:     "https://github.com/samoht/metrics.git"
+doc:          "https://samoht.github.io/metrics/"
+
+build: [
+ ["jbuilder" "subst"] {pinned}
+ ["jbuilder" "build" "-p" name "-j" jobs]
+]
+build-test: ["jbuilder" "runtest" "-p" name]
+
+depends: [
+  "jbuilder" {build & >= "1.0+beta10"}
+  "uuidm"
+  "metrics"
+  "mtime"
+]
