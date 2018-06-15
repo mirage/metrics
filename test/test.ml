@@ -15,16 +15,18 @@
  *)
 
 let set_reporter () =
-  let report ~tags ~fields ?timestamp ~over src k =
+  let report ~tags ~data ~over src k =
+    let data_fields = Metrics.Data.fields data in
     let name = Metrics.Src.name (Src src) in
-    let pp =
-      Fmt.(list ~sep:(unit ",") (pair ~sep:(unit "=") string string))
+    let pp_field ppf f =
+      Fmt.(pair ~sep:(unit "=") Metrics.pp_key Metrics.pp_value) ppf (f, f)
     in
-    let timestamp = match timestamp with
+    let pp = Fmt.(list ~sep:(unit ",") pp_field) in
+    let timestamp = match Metrics.Data.timestamp data with
       | Some ts -> ts
       | None    -> Fmt.to_to_string Mtime.pp (Mtime_clock.now ())
     in
-    Fmt.pr "%s %a %a %s\n%!" name pp tags pp fields timestamp;
+    Fmt.pr "%s %a %a %s\n%!" name pp tags pp data_fields timestamp;
     over ();
     k ()
   in
@@ -36,13 +38,13 @@ let set_reporter () =
 let src =
   let open Metrics in
   let tags = Tags.[
-      "foo", int;
-      "bar", string;
+      int    "foo";
+      string "bar";
     ] in
   let data i =
     Data.v [
-      "toto", Data.string ("XXX" ^ string_of_int i);
-      "titi", Data.int i
+      string "toto" ("XXX" ^ string_of_int i);
+      int    "titi" i;
     ] in
   Src.v "test" ~tags ~data
 
@@ -55,7 +57,7 @@ let f i =
 
 let timer =
   let open Metrics in
-  let tags = Tags.["truc", string] in
+  let tags = Tags.[string "truc"] in
   Src.timer "sleep" ~tags
 
 let m1 = Metrics.v timer "foo"
