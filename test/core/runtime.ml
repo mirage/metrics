@@ -21,61 +21,58 @@ let avoid_keyword =
     "SLIMIT" ; "SOFFSET" ; "STATS" ; "SUBSCRIPTION" ; "SUBSCRIPTIONS" ; "TAG" ;
     "TO" ; "USER" ; "USERS" ; "VALUES" ; "WHERE" ; "WITH" ; "WRITE"
   ] in
-  (fun m ->
-     if String.(Set.mem (Ascii.uppercase m) keywords) then
-       "o" ^ m
-     else
-       m)
+  (fun m -> if String.(Set.mem (Ascii.uppercase m) keywords) then "o" ^ m else m)
 
 let escape =
   List.fold_right (fun e m' -> String.(concat ~sep:("\\" ^ e) (cuts ~sep:e m')))
 
-let escape_measurement m =
-  escape  [ "," ; " " ] (avoid_keyword m)
+let escape_measurement m = escape  [ "," ; " " ] (avoid_keyword m)
 
-let escape_name m =
-  escape [ "," ; "=" ; " " ] (avoid_keyword m)
+let escape_name m = escape [ "," ; " " ; "=" ] (avoid_keyword m)
 
-let set_simple_reporter () =
-  let start = Mtime_clock.now () in
+let pp_value (str : string Fmt.t) ppf f =
+  let open Metrics in
+  match value f with
+  | V (String, s) -> str ppf s
+  | V (Int, i) -> Fmt.pf ppf "%di" i
+  | V (Int32, i32) -> Fmt.pf ppf "%ldi" i32
+  | V (Int64, i64) -> Fmt.pf ppf "%Ldi" i64
+  | V (Uint, u) -> Fmt.pf ppf "%ui" u
+  | V (Uint32, u32) -> Fmt.pf ppf "%lui" u32
+  | V (Uint64, u64) -> Fmt.pf ppf "%Lui" u64
+  | _ -> pp_value ppf f
+
+(* we need to:
+  - avoid keywords
+  - escape comma and space in measurement name
+  - escape comma, space and equal in tag key, tag value, field key of type string
+  - double-quote field value of type string
+  - data type number is a float, suffix i for integers *)
+let encode_line_protocol tags data name =
+  let data_fields = Metrics.Data.fields data in
+  let pp_field_str ppf s = Fmt.pf ppf "%S" s in
+  let pp_field ppf f =
+    Fmt.(pair ~sep:(unit "=") string (pp_value pp_field_str)) ppf
+      (escape_name (Metrics.key f), f)
+  in
+  let pp_fields = Fmt.(list ~sep:(unit ",") pp_field) in
+  let pp_tag_str ppf s = Fmt.string ppf (escape_name s) in
+  let pp_tag ppf f =
+    Fmt.(pair ~sep:(unit "=") string (pp_value pp_tag_str)) ppf
+      (escape_name (Metrics.key f), f)
+  in
+  let pp_tags = Fmt.(list ~sep:(unit ",") pp_tag) in
+  Fmt.strf "%s,%a %a" (escape_measurement name) pp_tags tags pp_fields data_fields
+
+let influxdb_reporter () =
   let report ~tags ~data ~over src k =
-    let open Metrics in
-    let data_fields = Data.fields data in
-    let name = escape_measurement (Src.name src) in
-    let pp_val (str : string Fmt.t) ppf f =
-      match value f with
-      | V (String, s) -> str ppf s
-      | V (Int, i) -> Fmt.pf ppf "%di" i
-      | V (Int32, i32) -> Fmt.pf ppf "%ldi" i32
-      | V (Int64, i64) -> Fmt.pf ppf "%Ldi" i64
-      | V (Uint, u) -> Fmt.pf ppf "%ui" u
-      | V (Uint32, u32) -> Fmt.pf ppf "%lui" u32
-      | V (Uint64, u64) -> Fmt.pf ppf "%Lui" u64
-      | _ -> pp_value ppf f
-    in
-    let pp_field_str ppf s = Fmt.pf ppf "%S" s in
-    let pp_field ppf f =
-      Fmt.(pair ~sep:(unit "=") string (pp_val pp_field_str)) ppf
-        (escape_name (key f), f)
-    in
-    let pp_fields = Fmt.(list ~sep:(unit ",") pp_field) in
-    let pp_tag_str ppf s = Fmt.string ppf (escape_name s) in
-    let pp_tag ppf f =
-      Fmt.(pair ~sep:(unit "=") string (pp_val pp_tag_str)) ppf
-        (escape_name (key f), f)
-    in
-    let pp_tags = Fmt.(list ~sep:(unit ",") pp_tag) in
-    let timestamp = match Data.timestamp data with
-      | Some ts -> ts
-      | None    -> Fmt.to_to_string Mtime.Span.pp
-                     (Mtime.span start (Mtime_clock.now ()))
-    in
-    Fmt.pr "%s,%a %a %s\n%!" name pp_tags tags pp_fields data_fields timestamp;
+    let str = encode_line_protocol tags data (Metrics.Src.name src) in
+    Fmt.pr "%s\n%!" str ;
     over ();
     k ()
   in
   let now () = Mtime_clock.now () |> Mtime.to_uint64_ns in
-  Metrics.set_reporter { Metrics.report; now }
+  { Metrics.report; now }
 
 (*************)
 (*   Tests   *)
@@ -167,6 +164,6 @@ let run () =
   done
 
 let () =
-  Metrics.enable_all ();
-  set_simple_reporter ();
+  Metrics.enable_all () ;
+  Metrics.set_reporter (influxdb_reporter ()) ;
   run ();
