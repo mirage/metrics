@@ -33,7 +33,7 @@
 
    {e %%VERSION%% - {{:%%PKG_HOMEPAGE%% }homepage}} *)
 
-(** {1:fields Fields *)
+(** {2:fields Fields} *)
 
 type field
 (** The type for metric fields. *)
@@ -68,7 +68,7 @@ val float: key -> float -> field
 val bool: key -> bool -> field
 (** [uint k b] is the field whose key is [k] and value is [i]. *)
 
-(** {2 Custom fields} *)
+(** {3 Custom fields} *)
 
 (** The type of supported values in metric fields. *)
 type 'a ty =
@@ -87,7 +87,7 @@ val field: string -> 'a ty -> 'a -> field
 (** [field k ty v] is the field whose key is [k], value type is [ty] and
     value is [v]. *)
 
-(** {2 Reading Fields} *)
+(** {3 Reading Fields} *)
 
 val key: field -> string
 (** [key f] is [f]'s key. *)
@@ -98,7 +98,7 @@ type value = V: 'a ty * 'a -> value
 val value: field -> value
 (** [value f] is [f]'s value. *)
 
-(** {2 Pretty-printing Fields} *)
+(** {3 Pretty-printing Fields} *)
 
 val pp_key: field Fmt.t
 (** [pp_key] is the pretty-printer for field keys. *)
@@ -107,12 +107,12 @@ val pp_value: field Fmt.t
 (** [pp_value] is the pretty-printer for field values, using
      sensible default. *)
 
-(** {1:data Data points} *)
+(** {2:data Data points} *)
 
 (** [Data] defines what is stored in the time series. *)
 module Data: sig
 
-  (** {1 Data}
+  (** {2 Data}
 
       [Metric]'s data points are a list of typed fields with an
       optional timestamp. They are created with the {!v} and
@@ -158,13 +158,13 @@ end
 type data = Data.t
 (** The type for data points. *)
 
-(** {1:tags Tags} *)
+(** {2:tags Tags} *)
 
 (** [Tags] indexes metric sources, and allow to enable/disable data
     collection at runtime. *)
 module Tags: sig
 
-  (** {1 Tags}
+  (** {2 Tags}
 
       [Tags] are heterogeneous {{!t}lists} of key names and type of values,
      which are associated to data sources. Filters on key names allow
@@ -192,7 +192,7 @@ let t = Tags.[
     | (::): ('a v) * ('b, 'c) t -> ('a -> 'b, 'c) t
 
 
-  (** {2 Types} *)
+  (** {3 Tag Values} *)
 
   val v: 'a Fmt.t -> string -> 'a v
   (** [ty pp] is a new typed tag. *)
@@ -227,7 +227,7 @@ val enable_all: unit -> unit
 val disable_all: unit -> unit
 (** [disable_all ()] disables all registered metric sources. *)
 
-(** {1:srcs Metric Sources} *)
+(** {2:srcs Sources} *)
 
 type kind = [`Any | `Timer | `Status]
 (** The kind for metric sources. Arbitrary data points can be added to
@@ -251,7 +251,7 @@ type ('a, 'b) t constraint 'b = [< kind]
 (** Metric sources. *)
 module Src : sig
 
-  (** {1 Sources} *)
+  (** {2 Sources} *)
 
   val v:
     ?doc:string ->
@@ -287,7 +287,7 @@ let src =
   Src.v "top" ~tags ~data ~doc:"Information about processess"
 ]} *)
 
-  (** {1 Status} *)
+  (** {3 Status} *)
 
   type result = [`Ok | `Error]
   (** The type for result events. *)
@@ -301,7 +301,7 @@ let src =
   val status: ?doc:string -> tags:('a, status) Tags.t -> string -> 'a status_src
   (** Same as {!v} but create a new status source. *)
 
-  (** {1 Timers} *)
+  (** {3 Timers} *)
 
   type 'a timer_src = ('a, int64 -> result -> Data.t, [`Timer]) src
   (** The type for timer sources. The callback takes the duration of
@@ -314,7 +314,7 @@ let src =
   val timer: ?doc:string -> tags:('a, timer) Tags.t -> string -> 'a timer_src
   (** Same as {!v} but create a new timer source. *)
 
-  (** {1 Listing Sources} *)
+  (** {3 Listing Sources} *)
 
   type t = Src: ('a, 'b, 'c) src -> t
   (** The type for metric sources. *)
@@ -352,7 +352,7 @@ let src =
 
 end
 
-(** {1:func Metric functions} *)
+(** {2:func Monitoring} *)
 
 val v: ('a, 'b, 'c) src -> 'a
 (** [v src t1 ... tn] resolves [src]'s tags with the values [t1],
@@ -373,7 +373,7 @@ val run_with_result: Src.timer -> (unit -> ('c, 'd) result) -> ('c, 'd) result
 val check: Src.status -> ('a, 'b) result -> unit
 (** [check s] records if [s] is a failure or a success. *)
 
-(** {1:reporter Reporters}
+(** {2:reporter Reporters}
 
     TODO: explain and give an example
 *)
