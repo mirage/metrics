@@ -171,6 +171,7 @@ module Src = struct
     let data i s = Data.v [ duration_f i; status_f s ] in
     create `Timer ?doc ~tags ~data name
 
+  let is_active (Src s) = s.active
   let enable (Src s) = s.active <- true
   let disable (Src s) = s.active <- false
   let kind (Src s) = (s.kind :> kind)
@@ -207,20 +208,25 @@ let v: type a b c. (a, b, c) Src.src -> a = fun src ->
 (* Reporters *)
 
 type reporter = {
-  now: unit -> int64;
+  now    : unit -> int64;
+  at_exit: unit -> unit;
   report :
     'a.  tags:tags -> data:data -> over:(unit -> unit) -> Src.t ->
     (unit -> 'a) -> 'a
 }
 
-let nop_reporter =
-  { now = (fun () -> 0L);
-    report = fun ~tags:_ ~data:_ ~over _ k -> over (); k () }
+let nop_reporter = {
+  at_exit = (fun () -> ());
+  now     = (fun () -> 0L);
+  report  = (fun ~tags:_ ~data:_ ~over _ k -> over (); k ());
+}
 
 let _reporter = ref nop_reporter
 let set_reporter r = _reporter := r
 let reporter () = !_reporter
 let report ~tags ~data ~over src k = !_reporter.report ~tags ~data ~over src k
+
+let () = at_exit (fun () -> !_reporter.at_exit ())
 
 let now () = !_reporter.now ()
 

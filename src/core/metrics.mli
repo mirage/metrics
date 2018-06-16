@@ -344,6 +344,9 @@ let src =
   (** [pp ppf src] prints an unspecified representation of [src] on
       [ppf]. *)
 
+  val is_active: t -> bool
+  (** [is_active t] is true iff [t] is enabled. *)
+
   val enable: t -> unit
   (** [enable src] enables the metric source [src]. *)
 
@@ -380,8 +383,9 @@ val check: Src.status -> ('a, 'b) result -> unit
 
 (** The type for reporters. *)
 type reporter = {
-  now   : unit -> int64;
-  report:
+  now    : unit -> int64;
+  at_exit: unit -> unit;
+  report :
     'a. tags:tags -> data:data -> over:(unit -> unit) ->
     Src.t -> (unit -> 'a) -> 'a
 }

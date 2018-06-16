@@ -35,7 +35,8 @@ let set_simple_reporter () =
     k ()
   in
   let now () = Mtime_clock.now () |> Mtime.to_uint64_ns in
-  Metrics.set_reporter { Metrics.report; now }
+  let at_exit () = () in
+  Metrics.set_reporter { Metrics.report; now; at_exit }
 
 (*************)
 (*   Tests   *)
