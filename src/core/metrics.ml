@@ -57,20 +57,29 @@ type 'a ty =
 
 type 'a v = { ty: 'a ty; v: 'a }
 
-type field = F: string * 'a v -> field
+type field = F: { key : string
+                ; unit: string option
+                ; doc : string option
+                ; v   : 'a v } -> field
 
-let key (F (k, _)) = k
+type 'a field_f = ?doc:string -> ?unit:string -> key -> 'a -> field
 
-let field k ty v = F (k, {ty; v})
-let string k v = F (k, {ty=String; v})
-let bool k v = F (k, {ty=Bool; v})
-let float k v = F (k, {ty=Float; v})
-let int k v = F (k, {ty=Int; v})
-let int32 k v = F (k, {ty=Int32; v})
-let int64 k v = F (k, {ty=Int64; v})
-let uint k v = F (k, {ty=Uint; v})
-let uint32 k v = F (k, {ty=Uint32; v})
-let uint64 k v = F (k, {ty=Uint64; v})
+let key (F {key; _}) = key
+let doc (F {doc; _}) = doc
+let unit (F {unit; _}) = unit
+
+let field ?doc ?unit key ty v = F {key; doc; unit; v = {ty; v}}
+
+let ff ty ?doc ?unit k v = field ?doc ?unit k ty v
+let string = ff String
+let bool = ff Bool
+let float = ff Float
+let int = ff Int
+let int32 = ff Int32
+let int64 = ff Int64
+let uint = ff Uint
+let uint32 = ff Uint32
+let uint64 = ff Uint64
 
 let pp: type a. a ty -> a Fmt.t = fun ty ppf v -> match ty with
   | String -> Fmt.string ppf v
@@ -86,8 +95,8 @@ let pp: type a. a ty -> a Fmt.t = fun ty ppf v -> match ty with
 
 type value = V: 'a ty * 'a -> value
 let pp_key ppf f = Fmt.string ppf (key f)
-let pp_value ppf (F (_, {ty; v})) = pp ty ppf v
-let value (F (_, {ty; v})) = V (ty, v)
+let pp_value ppf (F {v={ty; v}; _}) = pp ty ppf v
+let value (F {v={ty; v}; _}) = V (ty, v)
 
 module Data = struct
   type timestamp = string
