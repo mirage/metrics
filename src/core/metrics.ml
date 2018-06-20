@@ -233,21 +233,23 @@ let nop_reporter = {
 let _reporter = ref nop_reporter
 let set_reporter r = _reporter := r
 let reporter () = !_reporter
-let report ~tags ~data ~over src k = !_reporter.report ~tags ~data ~over src k
 
 let () = at_exit (fun () -> !_reporter.at_exit ())
 
 let now () = !_reporter.now ()
 
+let report (Src.Inst src) ~over ~k f =
+  let tags = src.tags in
+  f src.src.data (fun data ->
+      !_reporter.report ~tags ~data ~over (Src src.src) k
+    )
+
 let over () = ()
 let kunit _ = ()
 
-let is_active (Src.Inst src) = src.src.Src.active
+let add_no_check src f = report src ~over ~k:kunit (fun data k -> k (f data))
 
-let add_no_check (Src.Inst src) f =
-  let tags = src.tags in
-  let data = f src.src.data in
-  report ~tags ~data ~over (Src src.src) kunit
+let is_active (Src.Inst src) = src.src.Src.active
 
 let add src f = if is_active src then add_no_check src f
 
