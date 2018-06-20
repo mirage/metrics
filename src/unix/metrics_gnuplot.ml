@@ -61,9 +61,9 @@ open Metrics
 let (/) = Filename.concat
 
 type file = {
-  ppf  : Format.formatter;
-  keys : string list;
-  close: unit -> unit;
+  ppf        : Format.formatter;
+  data_fields: field list;
+  close      : unit -> unit;
 }
 
 let filename name ~tags =
@@ -88,7 +88,7 @@ let uuid = Uuidm.v `V4
 let default_dir = Unix.getcwd () / "_metrics" / Uuidm.to_string uuid
 let empty ?(dir=default_dir) () = { dir; srcs = Tbl.create 8 }
 
-let file t src ~keys ~tags =
+let file t src ~data_fields ~tags =
   try Tbl.find t.srcs (src, tags)
   with Not_found ->
     mkdir t.dir;
@@ -96,19 +96,18 @@ let file t src ~keys ~tags =
     let oc = open_out file in
     let ppf = Format.formatter_of_out_channel oc in
     let close () = close_out oc in
-    let file = { ppf; close; keys } in
+    let file = { ppf; close; data_fields } in
     Tbl.add t.srcs (src, tags) file;
     file
 
-let write t src ~keys ~tags fmt =
-  let f = file t src ~keys ~tags in
+let write t src ~data_fields ~tags fmt =
+  let f = file t src ~data_fields ~tags in
   Fmt.pf f.ppf fmt
 
 let set_reporter ?dir () =
   let t = empty ?dir () in
   let report ~tags ~data ~over src k =
     let data_fields = Data.fields data in
-    let keys = List.map key data_fields in
     (* TODO: quote values *)
     let pp = Fmt.(list ~sep:(unit ", ") pp_value) in
     let timestamp = match Data.timestamp data with
@@ -119,7 +118,7 @@ let set_reporter ?dir () =
       | [] -> Fmt.string ppf timestamp
       | _  -> Fmt.pf ppf "%s, " timestamp
     in
-    write ~keys ~tags t src "%a%a\n" pp_timestamp () pp data_fields;
+    write ~data_fields ~tags t src "%a%a\n" pp_timestamp () pp data_fields;
     over ();
     k ()
   in
@@ -137,6 +136,7 @@ let set_reporter ?dir () =
         let oc = open_out file in
         let ppf = Format.formatter_of_out_channel oc in
         let plots = Hashtbl.create 8 in
+        let units = Hashtbl.create 8 in
         let find_plots () =
           Tbl.iter (fun (src, tags) f ->
               if Src.name src = name then (
@@ -146,13 +146,15 @@ let set_reporter ?dir () =
                   Fmt.(list ~sep:(unit ", ") pp_tag)
                 in
                 let tags = Fmt.strf "%a" pp_tags tags in
-                List.iteri (fun i k ->
+                List.iteri (fun i f ->
+                    let k = key f in
                     let kplots =
                       try Hashtbl.find plots k
                       with Not_found -> []
                     in
+                    Hashtbl.replace units k (unit f);
                     Hashtbl.replace plots k ((file, i + 2, tags) :: kplots)
-                  ) f.keys
+                  ) f.data_fields
               )
             ) t.srcs
         in
@@ -161,17 +163,22 @@ let set_reporter ?dir () =
             let pp_plots ppf (file, i, label) =
               Fmt.pf ppf "'%s' using 1:%d t \"%s\"" file i label
             in
+            let unit =
+              match Hashtbl.find units k with
+              | Some s -> s
+              | None   -> "no unit"
+            in
             let output = Fmt.strf "%s-%s.png" name k in
             Fmt.pf ppf {|
 set title '%s (%s)'
 set xlabel "Time (ns)"
-set ylabel "TODO"
+set ylabel "%s (%s)"
 set datafile separator ","
 set grid
 set term png
 set output '%s'
 plot %a
-%!|} name k output Fmt.(list ~sep:(unit ", ") pp_plots) plots;
+%!|} name k k unit output Fmt.(list ~sep:(unit ", ") pp_plots) plots;
             let i = Fmt.kstrf Sys.command "cd %s && gnuplot %s" t.dir file in
             if i <> 0 then Fmt.failwith "Cannot generate graph for %s" name
             else (

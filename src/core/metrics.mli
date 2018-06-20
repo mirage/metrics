@@ -41,32 +41,35 @@ type field
 type key = string
 (** The type for field keys. *)
 
-val string: key -> string -> field
-(** [string k v] is the field whose key is [k] and value is [v]. *)
+type 'a field_f = ?doc:string -> ?unit:string -> key -> 'a -> field
+(** The type for field functions. *)
 
-val int: key -> int -> field
-(** [int k i] is the field whose key is [k] and value is [i]. *)
+val string: string field_f
+(** [string ?doc k v] is the field whose key is [k] and value is [v]. *)
 
-val uint: key -> int -> field
-(** [uint k i] is the field whose key is [k] and value is [i]. *)
+val int: int field_f
+(** [int ?doc k i] is the field whose key is [k] and value is [i]. *)
 
-val int32: key -> int32 -> field
+val uint: int field_f
+(** [uint ?doc k i] is the field whose key is [k] and value is [i]. *)
+
+val int32: int32 field_f
 (** [int32 k i] is the field whose key is [k] and value is [i]. *)
 
-val uint32: key -> int32 -> field
-(** [uint32 k i] is the field whose key is [k] and value is [i]. *)
+val uint32: int32 field_f
+(** [uint32 ?doc k i] is the field whose key is [k] and value is [i]. *)
 
-val int64: key -> int64 -> field
-(** [int64 k i] is the field whose key is [k] and value is [i]. *)
+val int64: int64 field_f
+(** [int64 ?doc k i] is the field whose key is [k] and value is [i]. *)
 
-val uint64: key -> int64 -> field
-(** [uint64 k i] is the field whose key is [k] and value is [i]. *)
+val uint64: int64 field_f
+(** [uint64 ?doc k i] is the field whose key is [k] and value is [i]. *)
 
-val float: key -> float -> field
-(** [uint k f] is the field whose key is [k] and value is [i]. *)
+val float: float field_f
+(** [uint ?doc k f] is the field whose key is [k] and value is [i]. *)
 
-val bool: key -> bool -> field
-(** [uint k b] is the field whose key is [k] and value is [i]. *)
+val bool: bool field_f
+(** [uint ?doc k b] is the field whose key is [k] and value is [i]. *)
 
 (** {3 Custom fields} *)
 
@@ -83,14 +86,20 @@ type 'a ty =
   | Uint64: int64 ty
   | Other: 'a Fmt.t -> 'a ty
 
-val field: string -> 'a ty -> 'a -> field
-(** [field k ty v] is the field whose key is [k], value type is [ty] and
-    value is [v]. *)
+val field: ?doc:string -> ?unit:string -> string -> 'a ty -> 'a -> field
+(** [field ?doc ?unit k ty v] is the field whose key is [k], value type is
+   [ty] and value is [v]. *)
 
 (** {3 Reading Fields} *)
 
 val key: field -> string
 (** [key f] is [f]'s key. *)
+
+val doc: field -> string option
+(** [doc f] is [f]'s documentation. *)
+
+val unit: field -> string option
+(** [unit t] are [t]'s units. *)
 
 type value = V: 'a ty * 'a -> value
 (** Type for values. *)

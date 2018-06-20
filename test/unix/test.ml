@@ -25,10 +25,9 @@ let src =
       string "hostname";
     ] in
   let data i =
-    let l = Int64.of_int i in
     Data.v [
-      int64 "CPU" (Int64.mul l l);
-      int   "MEM" i;
+      float "CPU" ~unit:"%" (float_of_int i **2.);
+      int   "MEM" ~unit:"KiB" i;
     ] in
   Src.v "test" ~tags ~data
 
