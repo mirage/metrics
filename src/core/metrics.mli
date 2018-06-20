@@ -257,6 +257,9 @@ type ('a, 'b) t constraint 'b = [< kind]
 (** The type for tagged metric sources. Such sources can be used to
    produce data-points. *)
 
+val is_active: ('a, 'b) t -> bool
+(** [is_active s] is true iff [t] is active. *)
+
 (** Metric sources. *)
 module Src : sig
 
@@ -409,4 +412,9 @@ val reporter: unit -> reporter
 val set_reporter: reporter -> unit
 (** [set_reporter r] sets the current reporter to [r]. *)
 
-(** TODO *)
+(**/*)
+val report:
+  ('a, [< kind ]) t ->
+  over:(unit -> unit) -> k:(unit -> 'b) -> ('a -> (data -> 'b) -> 'c) -> 'c
+
+val now: unit -> int64
