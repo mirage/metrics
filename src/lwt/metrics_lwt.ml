@@ -17,20 +17,23 @@
 open Metrics
 open Lwt.Infix
 
-
 (* same a Metrics.add_no_check *)
-let add_no_check src f =
-  report src ~over:(fun () -> ()) ~k:(fun _ -> ()) (fun data k -> k (f data))
+let add_no_check src tags f =
+  let over () = () in
+  let k _ = () in
+  report src ~over  ~k tags (fun data k -> k (f data))
 
-let add_no_check_lwt src f =
+let add_no_check_lwt src tags f =
   let (ret, unblock) = Lwt.wait () in
   let k () = ret in
   let over () = Lwt.wakeup unblock () in
-  report ~over src ~k (fun data k -> f data >>= k)
+  report ~over src ~k tags (fun data k -> f data >>= k)
 
-let add src f = if is_active src then add_no_check_lwt src f else Lwt.return ()
+let add src tags f =
+  if is_active src then add_no_check_lwt src tags f
+  else Lwt.return ()
 
-let run src g =
+let run src tags g =
   if not (is_active src) then g ()
   else (
     let d0 = now () in
@@ -41,14 +44,14 @@ let run src g =
     let dt = Int64.sub (now ()) d0 in
     match r with
     | Ok x ->
-      add_no_check src (fun m -> m dt `Ok);
+      add_no_check src tags (fun m -> m dt `Ok);
       x
     | Error (`Exn e) ->
-      add_no_check src (fun m -> m dt `Error);
+      add_no_check src tags (fun m -> m dt `Error);
       raise e
   )
 
-let run_with_result src g =
+let run_with_result src tags g =
   if not (is_active src) then g ()
   else (
     let d0 = now () in
@@ -59,12 +62,12 @@ let run_with_result src g =
     let dt = Int64.sub (now ()) d0 in
     match r with
     | Ok (Ok _ as x) ->
-      add_no_check src (fun m -> m dt `Ok);
+      add_no_check src tags (fun m -> m dt `Ok);
       x
     | Ok (Error _ as x) ->
-      add_no_check src (fun m -> m dt `Error);
+      add_no_check src tags (fun m -> m dt `Error);
       x
     | Error (`Exn e) ->
-      add_no_check src (fun m -> m dt `Error);
+      add_no_check src tags (fun m -> m dt `Error);
       raise e
   )

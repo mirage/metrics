@@ -31,10 +31,10 @@ let src =
     ] in
   Src.v "test" ~tags ~data
 
-let i0 = Metrics.v src 42 "foo.local"
-let i1 = Metrics.v src 12 "toto.com"
+let i0 t = t 42 "foo.local"
+let i1 t = t 12 "toto.com"
 
-let f src i = Metrics.add src (fun m -> m (i + Random.int 10))
+let f tags i = Metrics.add src tags (fun m -> m (i + Random.int 10))
 
 let run () =
   for i = 0 to 100 do

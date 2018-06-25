@@ -55,37 +55,36 @@ let src =
     ] in
   Src.v "test" ~tags ~data
 
-let i0 = Metrics.v src 42 "hi!"
-let i1 = Metrics.v src 12 "toto"
+let f tags =
+  Metrics.add src tags (fun m -> m 42);
+  Metrics.add src tags (fun m -> m 43)
 
-let f i =
-  Metrics.add i (fun m -> m 42);
-  Metrics.add i (fun m -> m 43)
+let i0 t = t 42 "hi!"
+let i1 t = t 12 "toto"
 
 let timer =
   let open Metrics in
   let tags = Tags.[string "truc"] in
   Src.timer "sleep" ~tags
 
-let m1 = Metrics.v timer "foo"
-let m2 = Metrics.v timer "bar"
+let m1 t = t "foo"
+let m2 t = t "bar"
 
 let status =
   let open Metrics in
   let tags = Tags.[] in
-  v (Src.status "status" ~tags)
-
+  Src.status "status" ~tags
 
 let run () =
   f i0;
   f i1;
-  let _ = Metrics.run_with_result m1 (fun () -> Ok (Unix.sleep 1)) in
+  let _ = Metrics.run_with_result timer m1 (fun () -> Ok (Unix.sleep 1)) in
   let () =
-    try Metrics.run m1 (fun () -> raise Not_found)
+    try Metrics.run timer m1 (fun () -> raise Not_found)
     with Not_found -> ()
   in
-  Metrics.check status (Ok ());
-  Metrics.check status (Error ())
+  Metrics.check status (fun t -> t) (Ok ());
+  Metrics.check status (fun t -> t) (Error ())
 
 let () =
   Metrics.enable_all ();

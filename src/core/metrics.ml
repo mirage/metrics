@@ -16,31 +16,6 @@
 
 module Keys = Set.Make(String)
 
-module Tags = struct
-
-  type 'a v = { k: string; pp: Format.formatter -> 'a -> unit }
-
-  let v pp k = { k; pp }
-  let string = v Fmt.string
-  let float = v Fmt.float
-  let int = v Fmt.int
-  let uint = v Fmt.uint
-  let int32 = v Fmt.int32
-  let uint32 = v Fmt.uint32
-  let int64 = v Fmt.int64
-  let uint64 = v Fmt.uint64
-  let bool = v Fmt.bool
-
-  type ('a, 'b) t =
-    | []  : ('b, 'b) t
-    | (::): 'a v * ('b, 'c) t -> ('a -> 'b, 'c) t
-
-  let rec domain: type a b. (a, b) t -> Keys.t = function
-    | []    -> Keys.empty
-    | h :: t -> Keys.add h.k (domain t)
-
-end
-
 type key = string
 
 type 'a ty =
@@ -80,6 +55,31 @@ let int64 = ff Int64
 let uint = ff Uint
 let uint32 = ff Uint32
 let uint64 = ff Uint64
+
+module Tags = struct
+
+  type 'a v = { k: string; pp: Format.formatter -> 'a -> unit }
+
+  let v pp k = { k; pp }
+  let string = v Fmt.string
+  let float = v Fmt.float
+  let int = v Fmt.int
+  let uint = v Fmt.uint
+  let int32 = v Fmt.int32
+  let uint32 = v Fmt.uint32
+  let int64 = v Fmt.int64
+  let uint64 = v Fmt.uint64
+  let bool = v Fmt.bool
+
+  type 'a t =
+    | []  : field list t
+    | (::): 'a v * 'b t -> ('a -> 'b) t
+
+  let rec domain: type a. a t -> Keys.t = function
+    | []    -> Keys.empty
+    | h :: t -> Keys.add h.k (domain t)
+
+end
 
 let pp: type a. a ty -> a Fmt.t = fun ty ppf v -> match ty with
   | String -> Fmt.string ppf v
@@ -123,25 +123,17 @@ module Src = struct
 
   let _tags = { all=false; tags=Keys.empty }
 
-  type kind = [`Any | `Timer | `Status]
-
-  type ('a, 'b, 'c) src = {
-    kind: 'c;
+  type ('a, 'b) src = {
     uid : int;
     name: string;
     doc : string;
     dom : Keys.t;
-    tags: ('a, ('b, 'c) inst) Tags.t;
+    tags: 'a Tags.t;
     data: 'b;
     mutable active: bool;
   }
 
-  and ('b, 'c) inst = Inst: {
-    src : ('a, 'b, 'c) src;
-    tags: tags;
-  } -> ('b, 'c) inst
-
-  type t = Src: ('a, 'b, [< kind]) src -> t
+  type t = Src: ('a, 'b) src -> t
 
   let uid =
     let id = ref (-1) in
@@ -153,37 +145,32 @@ module Src = struct
     if _tags.all then true
     else not (Keys.is_empty (Keys.inter _tags.tags tags))
 
-  let create kind ?(doc = "undocumented") ~tags ~data name =
+  let v ?(doc = "undocumented") ~tags ~data name =
     let dom = Tags.domain tags in
     let active = active dom in
-    let src = { kind; dom; uid = uid (); name; doc; tags; data; active } in
+    let src = { dom; uid = uid (); name; doc; tags; data; active } in
     list := Src src :: !list;
     src
-
-  let v ?doc ~tags ~data name = create `Any ?doc ~tags ~data name
 
   let string_of_result = function `Ok -> "ok" | `Error -> "error"
   let status_f v = field "status" (Other (Fmt.of_to_string string_of_result)) v
   let duration_f i = int64 "duration"  i
 
   type result = [`Ok | `Error]
-  type 'a status_src = ('a, result -> Data.t, [`Status]) src
-  type status = (result -> Data.t, [`Status]) inst
-  type 'a timer_src = ('a, int64 -> result -> Data.t, [`Timer]) src
-  type timer = (int64 -> result -> Data.t, [`Timer]) inst
+  type 'a status = ('a, result -> Data.t) src
+  type 'a timer = ('a, int64 -> result -> Data.t) src
 
-  let status ?doc ~tags name: 'a status_src =
+  let status ?doc ~tags name: 'a status =
     let data s = Data.v [ status_f s ] in
-    create `Status ?doc ~tags ~data name
+    v ?doc ~tags ~data name
 
-  let timer ?doc ~tags name: 'a timer_src =
+  let timer ?doc ~tags name: 'a timer =
     let data i s = Data.v [ duration_f i; status_f s ] in
-    create `Timer ?doc ~tags ~data name
+    v  ?doc ~tags ~data name
 
   let is_active (Src s) = s.active
   let enable (Src s) = s.active <- true
   let disable (Src s) = s.active <- false
-  let kind (Src s) = (s.kind :> kind)
   let name (Src s) = s.name
   let doc (Src s) = s.doc
   let tags (Src s) = Keys.elements s.dom
@@ -200,14 +187,12 @@ module Src = struct
 
 end
 
-type kind = Src.kind
-type ('a, 'b, 'c) src = ('a, 'b, 'c) Src.src constraint 'c = [< kind]
-type ('a, 'b) t = ('a, 'b) Src.inst constraint 'b = [< kind]
+type ('a, 'b) src = ('a, 'b) Src.src
 
-let v: type a b c. (a, b, c) Src.src -> a = fun src ->
-  let rec aux: type a. tags -> (a, (b, c) Src.inst) Tags.t -> a =
+let tag: type a b. (a, b) Src.src -> a = fun src ->
+  let rec aux: type a. tags -> a Tags.t -> a =
     fun tags -> function
-      | Tags.[]       -> Src.Inst { src; tags }
+      | Tags.[]       -> tags
       | Tags.(h :: t) -> (fun a ->
           let tags = field h.k (Other h.pp) a :: tags in
           aux tags t)
@@ -238,22 +223,23 @@ let () = at_exit (fun () -> !_reporter.at_exit ())
 
 let now () = !_reporter.now ()
 
-let report (Src.Inst src) ~over ~k f =
-  let tags = src.tags in
-  f src.src.data (fun data ->
-      !_reporter.report ~tags ~data ~over (Src src.src) k
+let report src ~over ~k tags f =
+  let tags = tags (tag src) in
+  f src.Src.data (fun data ->
+      !_reporter.report ~tags ~data ~over (Src src) k
     )
 
 let over () = ()
 let kunit _ = ()
 
-let add_no_check src f = report src ~over ~k:kunit (fun data k -> k (f data))
+let add_no_check src tags f =
+  report src ~over ~k:kunit tags (fun data k -> k (f data))
 
-let is_active (Src.Inst src) = src.src.Src.active
+let is_active src = src.Src.active
 
-let add src f = if is_active src then add_no_check src f
+let add src tags data = if is_active src then add_no_check src tags data
 
-let run src g =
+let run src tags g =
   if not (is_active src) then g ()
   else (
     let d0 = now () in
@@ -264,14 +250,14 @@ let run src g =
     let dt = Int64.sub (now ()) d0 in
     match r with
     | Ok x ->
-      add_no_check src (fun m -> m dt `Ok);
+      add_no_check src tags (fun m -> m dt `Ok);
       x
     | Error (`Exn e) ->
-      add_no_check src (fun m -> m dt `Error);
+      add_no_check src tags (fun m -> m dt `Error);
       raise e
   )
 
-let run_with_result src g =
+let run_with_result src tags g =
   if not (is_active src) then g ()
   else (
     let d0 = now () in
@@ -282,20 +268,20 @@ let run_with_result src g =
     let dt = Int64.sub (now ()) d0 in
     match r with
     | Ok (Ok _ as x) ->
-      add_no_check src (fun m -> m dt `Ok);
+      add_no_check src tags (fun m -> m dt `Ok);
       x
     | Ok (Error _ as x) ->
-      add_no_check src (fun m -> m dt `Error);
+      add_no_check src tags (fun m -> m dt `Error);
       x
     | Error (`Exn e) ->
-      add_no_check src (fun m -> m dt `Error);
+      add_no_check src tags (fun m -> m dt `Error);
       raise e
   )
 
-let check src t =
+let check src tags t =
   if is_active src then match t with
-    | Ok _    -> add_no_check src (fun m -> m `Ok)
-    | Error _ -> add_no_check src (fun m -> m `Error)
+    | Ok _    -> add_no_check src tags (fun m -> m `Ok)
+    | Error _ -> add_no_check src tags (fun m -> m `Error)
 
 let enable_tag t =
   Src._tags.tags <- Keys.add t Src._tags.tags;
