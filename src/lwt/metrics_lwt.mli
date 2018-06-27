@@ -27,14 +27,15 @@
 
 open Metrics
 
-val add: ('a, [`Any]) t -> ('a -> data Lwt.t) -> unit Lwt.t
-(** [add src f] adds a new data point to [src]. *)
+val add: ('a, 'b) src -> ('a -> tags) -> ('b -> data Lwt.t) -> unit Lwt.t
+(** [add src t f] adds a new data point to [src]. *)
 
-val run: Src.timer -> (unit -> 'a Lwt.t) -> 'a Lwt.t
+val run: 'a Src.timer -> ('a -> tags) -> (unit -> 'b Lwt.t) -> 'b Lwt.t
 (** [run src f] runs [f ()] and records in a new data point the time
    it took. [run] will also record the status of the computation,
    e.g. whether an exception has been raised. *)
 
 val run_with_result:
-  Src.timer -> (unit -> ('c, 'd) result Lwt.t) -> ('c, 'd) result Lwt.t
+  'a Src.timer -> ('a -> tags) ->
+  (unit -> ('c, 'd) result Lwt.t) -> ('c, 'd) result Lwt.t
 (** Same as {!run} but also record if the result is [Ok] or [Error]. *)

@@ -196,10 +196,9 @@ let t = Tags.[
   (** The type for tag values. *)
 
   (** The type tags: an heterogeneous list of names and types. *)
-  type ('a, 'b) t =
-    | []  : ('b, 'b) t
-    | (::): ('a v) * ('b, 'c) t -> ('a -> 'b, 'c) t
-
+  type 'a t =
+    | []  : field list t
+    | (::): 'a v * 'b t -> ('a -> 'b) t
 
   (** {3 Tag Values} *)
 
@@ -238,27 +237,10 @@ val disable_all: unit -> unit
 
 (** {2:srcs Sources} *)
 
-type kind = [`Any | `Timer | `Status]
-(** The kind for metric sources. Arbitrary data points can be added to
-   [`Any] sources. [`Timer] sources can gather data points containing
-   duration information. [`Status] sources can only gather
-   information about success/errors. *)
-
-type ('a, 'b, 'c) src constraint 'c = [< kind]
+type ('a, 'b) src
 (** The type for metric sources. A source defines a named unit for a
    time series. ['a] is the type of the function used to create new
-   {{!data}data points}. ['b] is the type of the function used to
-   create new {!tags}. ['c] is the kind of metrics (See {!kind}).
-
-    A source needs to be {{!v}tagged} before being available to
-   produce data-points.  *)
-
-type ('a, 'b) t constraint 'b = [< kind]
-(** The type for tagged metric sources. Such sources can be used to
-   produce data-points. *)
-
-val is_active: ('a, 'b) t -> bool
-(** [is_active s] is true iff [t] is active. *)
+   {{!data}data points}. ['b] is the type for {!tags}.  *)
 
 (** Metric sources. *)
 module Src : sig
@@ -266,10 +248,7 @@ module Src : sig
   (** {2 Sources} *)
 
   val v:
-    ?doc:string ->
-    tags:('a, ('b, [`Any]) t) Tags.t ->
-    data:'b ->
-    string -> ('a, 'b, [`Any]) src
+    ?doc:string -> tags:'a Tags.t -> data:'b -> string -> ('a, 'b) src
   (** [v ?doc ~tags name] is a new source, accepting arbitrary data points.
       [name] is the name
       of the source; it doesn't need to be unique but it is good
@@ -302,33 +281,27 @@ let src =
   (** {3 Status} *)
 
   type result = [`Ok | `Error]
+  (** The type for results. *)
+
+  type 'a status = ('a, result -> Data.t) src
   (** The type for result events. *)
 
-  type 'a status_src = ('a, result -> Data.t, [`Status]) src
-  (** The type for status sources. *)
-
-  type status = (result -> Data.t, [`Status]) t
-  (** The type for tagged status sources. *)
-
-  val status: ?doc:string -> tags:('a, status) Tags.t -> string -> 'a status_src
+  val status: ?doc:string -> tags:'a Tags.t-> string -> 'a status
   (** Same as {!v} but create a new status source. *)
 
   (** {3 Timers} *)
 
-  type 'a timer_src = ('a, int64 -> result -> Data.t, [`Timer]) src
+  type 'a timer = ('a, int64 -> result -> Data.t) src
   (** The type for timer sources. The callback takes the duration of
       the event in milliseconds (an [int64]) and the status: [Error] or
       [Success]. *)
 
-  type timer = (int64 -> result -> Data.t, [`Timer]) t
-  (** The type for tagged timer source. *)
-
-  val timer: ?doc:string -> tags:('a, timer) Tags.t -> string -> 'a timer_src
+  val timer: ?doc:string -> tags:'a Tags.t -> string -> 'a timer
   (** Same as {!v} but create a new timer source. *)
 
   (** {3 Listing Sources} *)
 
-  type t = Src: ('a, 'b, 'c) src -> t
+  type t = Src: ('a, 'b) src -> t
   (** The type for metric sources. *)
 
   val list : unit -> t list
@@ -336,9 +309,6 @@ let src =
 
   val name : t -> string
   (** [name src] is [src]'s name. *)
-
-  val kind : t -> kind
-  (** [kind src] is [src]'s kind. *)
 
   val doc : t -> string
   (** [doc src] is [src]'s documentation string. *)
@@ -369,24 +339,27 @@ end
 
 (** {2:func Monitoring} *)
 
-val v: ('a, 'b, 'c) src -> 'a
-(** [v src t1 ... tn] resolves [src]'s tags with the values [t1],
-   ... [tn]. Once all the tag values are provided, the metric source
-   become {{!t}tagged}. *)
+val is_active: ('a, 'b) src -> bool
+(** [is_active src] is true iff [src] monitoring is enabled. *)
 
-val add: ('a, [`Any]) t -> ('a -> data) -> unit
-(** [add src f] adds a new data point to [src]. *)
+val tag: ('a, 'b) src -> 'a
+(** [tag src t1 ... tn] tags [src] with the tags [t1], ..., [tn]. *)
 
-val run: Src.timer -> (unit -> 'a) -> 'a
-(** [run src f] runs [f ()] and records in a new data point the time
-   it took. [run] will also record the status of the computation,
-   e.g. whether an exception has been raised. *)
+val add: ('a, 'b) src -> ('a -> tags) -> ('b -> Data.t) -> unit
+(** [add src t f] adds a new data point to [src] for the tags [t]. *)
 
-val run_with_result: Src.timer -> (unit -> ('c, 'd) result) -> ('c, 'd) result
+val run: 'a Src.timer -> ('a -> tags) -> (unit -> 'b) -> 'b
+(** [run src t f] runs [f ()] and records in a new data point the time
+   it took using the tags [t]. [run] will also record the status of
+   the computation, e.g. whether an exception has been raised. *)
+
+val run_with_result:
+  'a Src.timer -> ('a -> tags) -> (unit -> ('c, 'd) result) -> ('c, 'd) result
 (** Same as {!run} but also record if the result is [Ok] or [Error]. *)
 
-val check: Src.status -> ('a, 'b) result -> unit
-(** [check s] records if [s] is a failure or a success. *)
+val check: 'a Src.status -> ('a -> tags) -> ('b, 'c) result -> unit
+(** [check s t] records if [s] is a failure or a success, using the
+   tags [t]. *)
 
 (** {2:reporter Reporters}
 
@@ -414,7 +387,8 @@ val set_reporter: reporter -> unit
 
 (**/*)
 val report:
-  ('a, [< kind ]) t ->
-  over:(unit -> unit) -> k:(unit -> 'b) -> ('a -> (data -> 'b) -> 'c) -> 'c
+  ('a, 'b) src ->
+  over:(unit -> unit) -> k:(unit -> 'c) ->
+  ('a -> tags) -> ('b -> (data -> 'c) -> 'd) -> 'd
 
 val now: unit -> int64
