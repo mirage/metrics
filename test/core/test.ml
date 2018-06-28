@@ -65,7 +65,8 @@ let i1 t = t 12 "toto"
 let timer =
   let open Metrics in
   let tags = Tags.[string "truc"] in
-  Src.timer "sleep" ~tags
+  let data () = Data.v [] in
+  Src.fn "sleep" ~tags ~data ~duration:true ~status:false
 
 let m1 t = t "foo"
 let m2 t = t "bar"
@@ -73,18 +74,20 @@ let m2 t = t "bar"
 let status =
   let open Metrics in
   let tags = Tags.[] in
-  Src.status "status" ~tags
+  let data () = Data.v [] in
+  Src.fn "status" ~tags ~data ~duration:true ~status:true
 
 let run () =
   f i0;
   f i1;
-  let _ = Metrics.run_with_result timer m1 (fun () -> Ok (Unix.sleep 1)) in
+  let _ = Metrics.rrun timer m1 (fun m -> m ()) (fun () -> Ok (Unix.sleep 1)) in
   let () =
-    try Metrics.run timer m1 (fun () -> raise Not_found)
+    try Metrics.run timer m1 (fun m -> m ()) (fun () -> raise Not_found)
     with Not_found -> ()
   in
-  Metrics.check status (fun t -> t) (Ok ());
-  Metrics.check status (fun t -> t) (Error ())
+  let _ = Metrics.rrun status (fun t -> t) (fun m -> m ()) (fun () -> Ok ()) in
+  let _ = Metrics.rrun status (fun t -> t) (fun m -> m ()) (fun () -> Error ()) in
+  ()
 
 let () =
   Metrics.enable_all ();

@@ -17,57 +17,71 @@
 open Metrics
 open Lwt.Infix
 
-(* same a Metrics.add_no_check *)
-let add_no_check src tags f =
-  let over () = () in
-  let k _ = () in
-  report src ~over  ~k tags (fun data k -> k (f data))
-
-let add_no_check_lwt src tags f =
+let add_no_check_lwt src ?duration ?status tags f =
   let (ret, unblock) = Lwt.wait () in
   let k () = ret in
   let over () = Lwt.wakeup unblock () in
-  report ~over src ~k tags (fun data k -> f data >>= k)
+  report src ~over ~k tags (fun data k ->
+      f data >>= fun data ->
+      let data = match duration, status with
+        | None  , None   -> data
+        | Some d, None
+        | None  , Some d -> Data.cons d data
+        | Some x, Some y -> Data.cons x (Data.cons y data)
+      in
+      k data
+    )
 
 let add src tags f =
   if is_active src then add_no_check_lwt src tags f
   else Lwt.return ()
 
-let run src tags g =
+let mk t f v = if t then Some (f v) else None
+
+let run src tags data g =
+  let src = Metrics.Src.src src in
   if not (is_active src) then g ()
   else (
     let d0 = now () in
     Lwt.catch
       (fun () -> g () >|= fun x -> Ok x)
       (fun e  -> Lwt.return (Error (`Exn e)))
-    >|= fun r ->
-    let dt = Int64.sub (now ()) d0 in
+    >>= fun r ->
+    let duration = mk (Src.duration (Src src)) duration (Int64.sub (now ()) d0) in
+    let status x = mk (Src.status (Src src)) status x in
     match r with
     | Ok x ->
-      add_no_check src tags (fun m -> m dt `Ok);
+      add_no_check_lwt src tags data ?duration ?status:(status `Ok)
+      >|= fun () ->
       x
     | Error (`Exn e) ->
-      add_no_check src tags (fun m -> m dt `Error);
+      add_no_check_lwt src tags data ?duration ?status:(status `Error)
+      >|= fun () ->
       raise e
   )
 
-let run_with_result src tags g =
+let rrun src tags data g =
+  let src = Metrics.Src.src src in
   if not (is_active src) then g ()
   else (
     let d0 = now () in
     Lwt.catch
       (fun () -> g () >|= fun x -> Ok x)
       (fun e  -> Lwt.return (Error (`Exn e)))
-    >|= fun r ->
-    let dt = Int64.sub (now ()) d0 in
+    >>= fun r ->
+    let duration = mk (Src.duration (Src src)) duration (Int64.sub (now ()) d0) in
+    let status x = mk (Src.status (Src src)) status x in
     match r with
     | Ok (Ok _ as x) ->
-      add_no_check src tags (fun m -> m dt `Ok);
+      add_no_check_lwt src tags data ?duration ?status:(status `Ok)
+      >|= fun () ->
       x
     | Ok (Error _ as x) ->
-      add_no_check src tags (fun m -> m dt `Error);
+      add_no_check_lwt src tags data ?duration ?status:(status `Error)
+      >|= fun () ->
       x
     | Error (`Exn e) ->
-      add_no_check src tags (fun m -> m dt `Error);
+      add_no_check_lwt src tags data ~duration ~status:(status `Error)
+      >|= fun () ->
       raise e
   )

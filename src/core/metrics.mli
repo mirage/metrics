@@ -71,6 +71,15 @@ val float: float field_f
 val bool: bool field_f
 (** [uint ?doc k b] is the field whose key is [k] and value is [i]. *)
 
+val duration: int64 -> field
+(** [duration t] is the field [("duration", t, "ns")]. *)
+
+type status = [`Ok | `Error]
+(** The type for process status. *)
+
+val status: status -> field
+(** [status t] is the field [("status", "ok")] or [("status", "error")]. *)
+
 (** {3 Custom fields} *)
 
 (** The type of supported values in metric fields. *)
@@ -162,6 +171,9 @@ let x = Data.v [
   val fields: t -> field list
   (** [fields t] is [t]'s fields. *)
 
+  val cons: field -> t -> t
+  (** [cons f t] is the new data having the same timestamp as [t] and
+     the fields [f :: fields t]. *)
 end
 
 type data = Data.t
@@ -280,24 +292,22 @@ let src =
 
   (** {3 Status} *)
 
-  type result = [`Ok | `Error]
-  (** The type for results. *)
+  type ('a, 'b) fn
+  (** The type for function source events. *)
 
-  type 'a status = ('a, result -> Data.t) src
-  (** The type for result events. *)
+  val fn:
+    ?doc:string -> ?duration:bool -> ?status:bool -> tags:'a Tags.t-> data:'b ->
+    string -> ('a, 'b) fn
+  (** Same as {!v} but create a new status source.
 
-  val status: ?doc:string -> tags:'a Tags.t-> string -> 'a status
-  (** Same as {!v} but create a new status source. *)
+      If [duration] is set (it is by default), a {!duration} field is
+      automatically added to new data points.
 
-  (** {3 Timers} *)
+      If [status] is set (it is by default), a {!status} field is
+      automatically added to new data points. *)
 
-  type 'a timer = ('a, int64 -> result -> Data.t) src
-  (** The type for timer sources. The callback takes the duration of
-      the event in milliseconds (an [int64]) and the status: [Error] or
-      [Success]. *)
-
-  val timer: ?doc:string -> tags:'a Tags.t -> string -> 'a timer
-  (** Same as {!v} but create a new timer source. *)
+  val src: ('a, 'b) fn -> ('a, 'b) src
+  (** [src f] is the raw source for the function source event [f]. *)
 
   (** {3 Listing Sources} *)
 
@@ -322,6 +332,14 @@ let src =
   val compare : t -> t -> int
   (** [compare src src'] is a total order on sources. *)
 
+  val duration: t -> bool
+  (** [duration t] is true iff [t] is a {!fn} source and [t] requires
+     automatic duration recording. *)
+
+  val status: t -> bool
+  (** [status t] is true iff [t] is a {!fn} source and [t] requires
+     automatic duration recording. *)
+
   val pp : t Fmt.t
   (** [pp ppf src] prints an unspecified representation of [src] on
       [ppf]. *)
@@ -342,24 +360,21 @@ end
 val is_active: ('a, 'b) src -> bool
 (** [is_active src] is true iff [src] monitoring is enabled. *)
 
-val tag: ('a, 'b) src -> 'a
-(** [tag src t1 ... tn] tags [src] with the tags [t1], ..., [tn]. *)
-
 val add: ('a, 'b) src -> ('a -> tags) -> ('b -> Data.t) -> unit
 (** [add src t f] adds a new data point to [src] for the tags [t]. *)
 
-val run: 'a Src.timer -> ('a -> tags) -> (unit -> 'b) -> 'b
-(** [run src t f] runs [f ()] and records in a new data point the time
-   it took using the tags [t]. [run] will also record the status of
-   the computation, e.g. whether an exception has been raised. *)
+val run: ('a, 'b) Src.fn -> ('a -> tags) -> ('b -> Data.t) ->
+  (unit -> 'c) -> 'c
+(** [run src t f g] runs [g ()] and add a new data points.
 
-val run_with_result:
-  'a Src.timer -> ('a -> tags) -> (unit -> ('c, 'd) result) -> ('c, 'd) result
+    Depending on [src] configuration, new data points might have
+   duration information (e.g. how long [g ()] took, in nano-seconds)
+   and status information (e.g. to check if an exception has been
+   raised). *)
+
+val rrun: ('a, 'b) Src.fn -> ('a -> tags) -> ('b -> Data.t) ->
+  (unit -> ('c, 'd) result) -> ('c, 'd) result
 (** Same as {!run} but also record if the result is [Ok] or [Error]. *)
-
-val check: 'a Src.status -> ('a -> tags) -> ('b, 'c) result -> unit
-(** [check s t] records if [s] is a failure or a success, using the
-   tags [t]. *)
 
 (** {2:reporter Reporters}
 
