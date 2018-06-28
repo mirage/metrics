@@ -61,6 +61,7 @@ open Metrics
 let (/) = Filename.concat
 
 type file = {
+  name       : string;
   ppf        : Format.formatter;
   data_fields: field list;
   close      : unit -> unit;
@@ -95,8 +96,11 @@ let file t src ~data_fields ~tags =
     let file = t.dir / filename (Src.name src) ~tags in
     let oc = open_out file in
     let ppf = Format.formatter_of_out_channel oc in
-    let close () = close_out oc in
-    let file = { ppf; close; data_fields } in
+    let close () =
+      Format.fprintf ppf "%!";
+      close_out oc
+    in
+    let file = { name = file; ppf; close; data_fields } in
     Tbl.add t.srcs (src, tags) file;
     file
 
@@ -132,9 +136,6 @@ let set_reporter ?dir () =
       ) [] (Src.list ())
     in
     List.iter (fun name ->
-        let file = t.dir / name ^ ".gp" in
-        let oc = open_out file in
-        let ppf = Format.formatter_of_out_channel oc in
         let plots = Hashtbl.create 8 in
         let units = Hashtbl.create 8 in
         let find_plots () =
@@ -159,17 +160,23 @@ let set_reporter ?dir () =
             ) t.srcs
         in
         find_plots ();
-        Hashtbl.iter (fun k plots ->
-            let pp_plots ppf (file, i, label) =
-              Fmt.pf ppf "'%s' using 1:%d t \"%s\"" file i label
-            in
-            let unit =
-              match Hashtbl.find units k with
-              | Some s -> s
-              | None   -> "no unit"
-            in
-            let output = Fmt.strf "%s-%s.png" name k in
-            Fmt.pf ppf {|
+        if Hashtbl.length plots <> 0 then (
+          let file = t.dir / name ^ ".gp" in
+          mkdir (Filename.dirname file);
+          let oc = open_out file in
+          let ppf = Format.formatter_of_out_channel oc in
+
+          Hashtbl.iter (fun k plots ->
+              let pp_plots ppf (file, i, label) =
+                Fmt.pf ppf "'%s' using 1:%d t \"%s\"" file i label
+              in
+              let unit =
+                match Hashtbl.find units k with
+                | Some s -> s
+                | None   -> "no unit"
+              in
+              let output = Fmt.strf "%s-%s.png" name k in
+              Fmt.pf ppf {|
 set title '%s (%s)'
 set xlabel "Time (ns)"
 set ylabel "%s (%s)"
@@ -179,12 +186,13 @@ set term png
 set output '%s'
 plot %a
 %!|} name k k unit output Fmt.(list ~sep:(unit ", ") pp_plots) plots;
-            let i = Fmt.kstrf Sys.command "cd %s && gnuplot %s" t.dir file in
-            if i <> 0 then Fmt.failwith "Cannot generate graph for %s" name
-            else (
-              Fmt.pr "%s has been created.\n%!" (t.dir / output);
-            )
-          ) plots;
+              let i = Fmt.kstrf Sys.command "cd %s && gnuplot %s" t.dir file in
+              if i <> 0 then Fmt.failwith "Cannot generate graph for %s" name
+              else (
+                Fmt.pr "%s has been created.\n%!" (t.dir / output);
+              )
+            ) plots
+        );
       ) srcs;
   in
   Metrics.set_reporter { Metrics.report; now; at_exit }

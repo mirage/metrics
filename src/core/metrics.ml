@@ -56,6 +56,11 @@ let uint = ff Uint
 let uint32 = ff Uint32
 let uint64 = ff Uint64
 
+type status = [`Ok | `Error]
+let string_of_status = function `Ok -> "ok" | `Error -> "error"
+let status v = field "status" (Other (Fmt.of_to_string string_of_status)) v
+let duration i = int64 "duration"  i
+
 module Tags = struct
 
   type 'a v = { k: string; pp: Format.formatter -> 'a -> unit }
@@ -107,6 +112,7 @@ module Data = struct
   let keys t = List.map key t.fields
   let timestamp t = t.timestamp
   let fields t = t.fields
+  let cons h t = { t with fields = h :: t.fields }
   let v ?timestamp fields = { timestamp; fields }
 end
 
@@ -130,10 +136,17 @@ module Src = struct
     dom : Keys.t;
     tags: 'a Tags.t;
     data: 'b;
+    dmap: data -> data;
     mutable active: bool;
+    duration: bool;
+    status: bool;
   }
 
+  type ('a, 'b) fn = ('a, 'b) src
+
   type t = Src: ('a, 'b) src -> t
+
+  let src x = x
 
   let uid =
     let id = ref (-1) in
@@ -145,28 +158,22 @@ module Src = struct
     if _tags.all then true
     else not (Keys.is_empty (Keys.inter _tags.tags tags))
 
-  let v ?(doc = "undocumented") ~tags ~data name =
+  let fn
+      ?(doc = "undocumented") ?(duration=true) ?(status=true) ~tags ~data name
+    =
     let dom = Tags.domain tags in
     let active = active dom in
-    let src = { dom; uid = uid (); name; doc; tags; data; active } in
+    let dmap x = x in
+    let src = {
+      duration; status;
+      dom; uid = uid ();
+      name; doc; tags; data;
+      active; dmap
+    } in
     list := Src src :: !list;
     src
 
-  let string_of_result = function `Ok -> "ok" | `Error -> "error"
-  let status_f v = field "status" (Other (Fmt.of_to_string string_of_result)) v
-  let duration_f i = int64 "duration"  i
-
-  type result = [`Ok | `Error]
-  type 'a status = ('a, result -> Data.t) src
-  type 'a timer = ('a, int64 -> result -> Data.t) src
-
-  let status ?doc ~tags name: 'a status =
-    let data s = Data.v [ status_f s ] in
-    v ?doc ~tags ~data name
-
-  let timer ?doc ~tags name: 'a timer =
-    let data i s = Data.v [ duration_f i; status_f s ] in
-    v  ?doc ~tags ~data name
+  let v ?doc ~tags ~data name = fn ?doc ~tags ~data name
 
   let is_active (Src s) = s.active
   let enable (Src s) = s.active <- true
@@ -175,15 +182,17 @@ module Src = struct
   let doc (Src s) = s.doc
   let tags (Src s) = Keys.elements s.dom
   let equal (Src src0) (Src src1) = src0.uid = src1.uid
-  let compare (Src src0) (Src src1) =
-    (Pervasives.compare : int -> int -> int) src0.uid src1.uid
+  let compare (Src src0) (Src src1) = Pervasives.compare src0.uid src1.uid
+  let duration (Src s) = s.duration
+  let status (Src s) = s.status
 
   let pp ppf (Src src) = Format.fprintf ppf
       "@[<1>(src@ @[<1>(name %S)@]@ @[<1>(uid %d)@] @[<1>(doc %S)@])@]"
       src.name src.uid src.doc
 
   let list () = !list
-  let update () = List.iter (fun (Src s) -> s.active <- active s.dom) (list ())
+  let update () =
+    List.iter (fun (Src s) -> s.active <- active s.dom) (list ())
 
 end
 
@@ -232,14 +241,25 @@ let report src ~over ~k tags f =
 let over () = ()
 let kunit _ = ()
 
-let add_no_check src tags f =
-  report src ~over ~k:kunit tags (fun data k -> k (f data))
+let add_no_check src ?duration ?status tags f =
+  report src ~over ~k:kunit tags (fun data k ->
+      let data = f data in
+      let data = match duration, status with
+        | None  , None   -> data
+        | Some d, None
+        | None  , Some d -> Data.cons d data
+        | Some x, Some y -> Data.cons x (Data.cons y data)
+      in
+      k data
+    )
 
 let is_active src = src.Src.active
 
 let add src tags data = if is_active src then add_no_check src tags data
 
-let run src tags g =
+let mk t f v = if t then Some (f v) else None
+
+let run src tags data g =
   if not (is_active src) then g ()
   else (
     let d0 = now () in
@@ -247,17 +267,18 @@ let run src tags g =
       try Ok (g ())
       with e -> Error (`Exn e)
     in
-    let dt = Int64.sub (now ()) d0 in
+    let duration = mk src.duration duration (Int64.sub (now ()) d0) in
+    let status x = mk src.status status x in
     match r with
     | Ok x ->
-      add_no_check src tags (fun m -> m dt `Ok);
+      add_no_check src tags data ?duration ?status:(status `Ok);
       x
     | Error (`Exn e) ->
-      add_no_check src tags (fun m -> m dt `Error);
+      add_no_check src tags data ?duration ?status:(status `Error);
       raise e
   )
 
-let run_with_result src tags g =
+let rrun src tags data g =
   if not (is_active src) then g ()
   else (
     let d0 = now () in
@@ -265,23 +286,19 @@ let run_with_result src tags g =
       try Ok (g ())
       with e -> Error (`Exn e)
     in
-    let dt = Int64.sub (now ()) d0 in
+    let duration = mk src.duration duration (Int64.sub (now ()) d0) in
+    let status x = mk src.status status x in
     match r with
     | Ok (Ok _ as x) ->
-      add_no_check src tags (fun m -> m dt `Ok);
+      add_no_check src tags data ?duration ?status:(status `Ok);
       x
     | Ok (Error _ as x) ->
-      add_no_check src tags (fun m -> m dt `Error);
+      add_no_check src tags data ?duration ?status:(status `Error);
       x
     | Error (`Exn e) ->
-      add_no_check src tags (fun m -> m dt `Error);
+      add_no_check src tags data ?duration ?status:(status `Error);
       raise e
   )
-
-let check src tags t =
-  if is_active src then match t with
-    | Ok _    -> add_no_check src tags (fun m -> m `Ok)
-    | Error _ -> add_no_check src tags (fun m -> m `Error)
 
 let enable_tag t =
   Src._tags.tags <- Keys.add t Src._tags.tags;
