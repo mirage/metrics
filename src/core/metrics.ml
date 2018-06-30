@@ -317,7 +317,8 @@ let disable_all () =
   Src._tags.tags <- Keys.empty;
   Src.update ()
 
-let ocaml_runtime_quick ~tags =
+let gc_quick_stat ~tags =
+  let doc = "OCaml memory management counters (quick)" in
   let data () =
     let stat = Gc.quick_stat () in
     Data.v [
@@ -332,9 +333,10 @@ let ocaml_runtime_quick ~tags =
       uint "top heap words" stat.Gc.top_heap_words ;
       uint "stack size" stat.Gc.stack_size ;
     ] in
-  Src.v "OCaml runtime quick" ~tags ~data
+  Src.v ~doc ~tags ~data "gc quick"
 
-let ocaml_runtime ~tags =
+let gc_stat ~tags =
+  let doc = "OCaml memory management counters" in
   let data () =
     let stat = Gc.stat () in
     Data.v [
@@ -355,4 +357,4 @@ let ocaml_runtime ~tags =
       uint "top heap words" stat.Gc.top_heap_words ;
       uint "stack size" stat.Gc.stack_size ;
     ] in
-  Src.v "OCaml runtime" ~tags ~data
+  Src.v ~doc ~tags ~data "gc"
