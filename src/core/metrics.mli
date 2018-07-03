@@ -400,6 +400,26 @@ val reporter: unit -> reporter
 val set_reporter: reporter -> unit
 (** [set_reporter r] sets the current reporter to [r]. *)
 
+
+(** {2:runtime OCaml Gc sources}
+
+    The {{:http://caml.inria.fr/pub/docs/manual-ocaml/libref/Gc.html}Gc} module
+   of the OCaml system provides
+   {{:http://caml.inria.fr/pub/docs/manual-ocaml/libref/Gc.html#TYPEstat}counters}
+   of the memory management via
+   {{:http://caml.inria.fr/pub/docs/manual-ocaml/libref/Gc.html#VALquick_stat}Gc.quick_stat}
+   and
+   {{:http://caml.inria.fr/pub/docs/manual-ocaml/libref/Gc.html#VALstat}Gc.stat}
+    function.  Both are provided here. *)
+
+val gc_stat: tags:'a Tags.t -> ('a, unit -> data) src
+(** [gc_stat ~tags] is the source of OCaml's [Gc.stat ()] memory management
+    counters. *)
+
+val gc_quick_stat: tags:'a Tags.t -> ('a, unit -> data) src
+(** [gc_quick_stat ~tags] is the source of OCaml's [Gc.quick_stat ()] memory
+    management counters. *)
+
 (**/*)
 val report:
   ('a, 'b) src ->

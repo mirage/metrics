@@ -316,3 +316,45 @@ let disable_all () =
   Src._tags.all <- false;
   Src._tags.tags <- Keys.empty;
   Src.update ()
+
+let gc_quick_stat ~tags =
+  let doc = "OCaml memory management counters (quick)" in
+  let data () =
+    let stat = Gc.quick_stat () in
+    Data.v [
+      float "minor words" stat.Gc.minor_words ;
+      float "promoted words" stat.Gc.promoted_words ;
+      float "major words" stat.Gc.major_words ;
+      uint "minor collections" stat.Gc.minor_collections ;
+      uint "major collections" stat.Gc.major_collections ;
+      uint "heap words" stat.Gc.heap_words ;
+      uint "heap chunks" stat.Gc.heap_chunks ;
+      uint "compactions" stat.Gc.compactions ;
+      uint "top heap words" stat.Gc.top_heap_words ;
+      uint "stack size" stat.Gc.stack_size ;
+    ] in
+  Src.v ~doc ~tags ~data "gc quick"
+
+let gc_stat ~tags =
+  let doc = "OCaml memory management counters" in
+  let data () =
+    let stat = Gc.stat () in
+    Data.v [
+      float "minor words" stat.Gc.minor_words ;
+      float "promoted words" stat.Gc.promoted_words ;
+      float "major words" stat.Gc.major_words ;
+      uint "minor collections" stat.Gc.minor_collections ;
+      uint "major collections" stat.Gc.major_collections ;
+      uint "heap words" stat.Gc.heap_words ;
+      uint "heap chunks" stat.Gc.heap_chunks ;
+      uint "compactions" stat.Gc.compactions ;
+      uint "live words" stat.Gc.live_words ;
+      uint "live blocks" stat.Gc.live_blocks ;
+      uint "free words" stat.Gc.free_words ;
+      uint "free blocks" stat.Gc.free_blocks ;
+      uint "largest free" stat.Gc.largest_free ;
+      uint "fragments" stat.Gc.fragments ;
+      uint "top heap words" stat.Gc.top_heap_words ;
+      uint "stack size" stat.Gc.stack_size ;
+    ] in
+  Src.v ~doc ~tags ~data "gc"
