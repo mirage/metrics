@@ -81,7 +81,7 @@ let rrun src tags data g =
       >|= fun () ->
       x
     | Error (`Exn e) ->
-      add_no_check_lwt src tags data ~duration ~status:(status `Error)
+      add_no_check_lwt src tags data ?duration ?status:(status `Error)
       >|= fun () ->
       raise e
   )
