@@ -18,10 +18,11 @@
    - Every tagged source has its own file:
       "<src-name>-<tag1>-...<tagn>.data"
    - A data-point is a newline in that file.
-   - There's a toplevel gnuplot script per source,
-     which plots all the graphs together.
+   - There's a toplevel gnuplot script per graph,
+     which plots all the source beloging to that same graph
+     together.
    - There's a toplevel global script which plots all
-     the source graph.
+     the graphs.
 *)
 
 (* Unix++ *)
@@ -67,33 +68,60 @@ type file = {
   close      : unit -> unit;
 }
 
-let filename name ~tags =
+let filename (src, tags) =
   (* TODO: quote names *)
   let pp_tags = Fmt.(list ~sep:(unit "-") pp_value) in
+  let name = Src.name src in
   Fmt.strf "%a.data" pp_tags (string "" name :: tags)
 
-module Tbl = Hashtbl.Make(struct
-    type t = Src.t * tags
-    let hash (src, tags) = Hashtbl.hash (filename (Src.name src) ~tags)
-    let equal (a, b) (c, d) =
-      Src.name a = Src.name c &&
-      filename (Src.name a) ~tags:b = filename (Src.name c) ~tags:d
+module Plot = struct
+
+  type t = Src.t * tags
+
+  module Tbl = Hashtbl.Make(struct
+    type nonrec t = t
+    let hash t = Hashtbl.hash (filename t)
+    let equal a b = filename a = filename b
+  end)
+
+end
+
+module Graph = struct
+
+  type t = Graph.t
+
+  module Tbl = Hashtbl.Make(struct
+      type nonrec t = t
+      let hash t = Hashtbl.hash (Graph.id t)
+      let equal a b = Graph.id a = Graph.id b
+    end)
+
+end
+
+module Fields = Set.Make(struct
+    type t = Plot.t * int
+    let compare (a, b) (c, d) =
+      match compare (filename a) (filename c) with
+      | 0 -> compare b d
+      | i -> i
   end)
 
 type t = {
-  dir : string;
-  srcs: file Tbl.t;
+  dir   : string;
+  plots : file Plot.Tbl.t;
+  graphs: Fields.t Graph.Tbl.t;
 }
 
 let uuid = Uuidm.v `V4
 let default_dir = Unix.getcwd () / "_metrics" / Uuidm.to_string uuid
-let empty ?(dir=default_dir) () = { dir; srcs = Tbl.create 8 }
+let empty ?(dir=default_dir) () =
+  { dir; plots = Plot.Tbl.create 8; graphs = Graph.Tbl.create 8 }
 
 let file t src ~data_fields ~tags =
-  try Tbl.find t.srcs (src, tags)
+  try Plot.Tbl.find t.plots (src, tags)
   with Not_found ->
     mkdir t.dir;
-    let file = t.dir / filename (Src.name src) ~tags in
+    let file = t.dir / filename (src, tags) in
     let oc = open_out file in
     let ppf = Format.formatter_of_out_channel oc in
     let close () =
@@ -101,12 +129,42 @@ let file t src ~data_fields ~tags =
       close_out oc
     in
     let file = { name = file; ppf; close; data_fields } in
-    Tbl.add t.srcs (src, tags) file;
+    Plot.Tbl.add t.plots (src, tags) file;
     file
 
 let write t src ~data_fields ~tags fmt =
   let f = file t src ~data_fields ~tags in
+  List.iteri (fun i field ->
+      let g = graph field in
+      let gs =
+        try Graph.Tbl.find t.graphs g
+        with Not_found -> Fields.empty
+      in
+      let gs = Fields.add ((src, tags), i+2) gs in
+      Graph.Tbl.replace t.graphs g gs
+    ) data_fields;
   Fmt.pf f.ppf fmt
+
+let pp_tags =
+  let pp_tag ppf t = Fmt.pf ppf "%a=%a" pp_key t pp_value t in
+  Fmt.(list ~sep:(unit ", ") pp_tag)
+
+let read_file file =
+  let ic = open_in file in
+  let r = ref [] in
+  try while true do r := input_line ic :: !r done; assert false
+  with End_of_file ->
+    close_in ic;
+    String.concat "\n" (List.rev !r)
+
+let read_output cmd =
+  let temp_file = Filename.temp_file "metrics" "gnuplot" in
+  let fd = Unix.openfile temp_file [O_WRONLY; O_TRUNC] 0 in
+  let pid = Unix.create_process "sh" [| "sh"; "-c"; cmd |] Unix.stdin fd fd in
+  Unix.close fd;
+  match snd (Unix.waitpid [] pid) with
+  | WEXITED 0 -> Ok (read_file temp_file)
+  | _         -> Error (read_file temp_file)
 
 let set_reporter ?dir () =
   let t = empty ?dir () in
@@ -129,70 +187,47 @@ let set_reporter ?dir () =
   let now () = Mtime_clock.now () |> Mtime.to_uint64_ns in
   let at_exit () =
     (* Close all the data files *)
-    Tbl.iter (fun _ f -> f.close ()) t.srcs;
-    (* Create a gnuplot script per source (if it's active) *)
-    let srcs = List.fold_left (fun acc src ->
-        if Src.is_active src then Src.name src :: acc else acc
-      ) [] (Src.list ())
-    in
-    List.iter (fun name ->
-        let plots = Hashtbl.create 8 in
-        let units = Hashtbl.create 8 in
-        let find_plots () =
-          Tbl.iter (fun (src, tags) f ->
-              if Src.name src = name then (
-                let file = filename name ~tags in
-                let pp_tags =
-                  let pp_tag ppf t = Fmt.pf ppf "%a=%a" pp_key t pp_value t in
-                  Fmt.(list ~sep:(unit ", ") pp_tag)
-                in
-                let tags = Fmt.strf "%a" pp_tags tags in
-                List.iteri (fun i f ->
-                    let k = key f in
-                    let kplots =
-                      try Hashtbl.find plots k
-                      with Not_found -> []
-                    in
-                    Hashtbl.replace units k (unit f);
-                    Hashtbl.replace plots k ((file, i + 2, tags) :: kplots)
-                  ) f.data_fields
-              )
-            ) t.srcs
+    Plot.Tbl.iter (fun _ f -> f.close ()) t.plots;
+    Graph.Tbl.iter (fun g fields ->
+        let label = Metrics.Graph.label g in
+        let title = match Metrics.Graph.title g with
+          | Some t -> t
+          | None   -> label
         in
-        find_plots ();
-        if Hashtbl.length plots <> 0 then (
-          let file = t.dir / name ^ ".gp" in
-          mkdir (Filename.dirname file);
-          let oc = open_out file in
-          let ppf = Format.formatter_of_out_channel oc in
-
-          Hashtbl.iter (fun k plots ->
-              let pp_plots ppf (file, i, label) =
-                Fmt.pf ppf "'%s' using 1:%d t \"%s\"" file i label
-              in
-              let unit =
-                match Hashtbl.find units k with
-                | Some s -> s
-                | None   -> "no unit"
-              in
-              let output = Fmt.strf "%s-%s.png" name k in
-              Fmt.pf ppf {|
-set title '%s (%s)'
+        let unit = match Metrics.Graph.unit g with
+          | None   -> ""
+          | Some u -> Fmt.strf " (%s)" u
+        in
+        let output = Fmt.strf "%s.png" label in
+        let file = t.dir / label ^ ".gp" in
+        mkdir (Filename.dirname file);
+        let oc = open_out file in
+        let ppf = Format.formatter_of_out_channel oc in
+        let plots = Fields.fold (fun ((_, tags as plot), i) acc ->
+            let file = filename plot in
+            let label = Fmt.to_to_string pp_tags tags in
+            (file, i, label) :: acc
+          ) fields []
+        in
+        let pp_plots ppf (file, i, label) =
+          Fmt.pf ppf "'%s' using 1:%d t \"%s\"" file i label
+        in
+        Fmt.pf ppf {|
+set title '%s'
 set xlabel "Time (ns)"
-set ylabel "%s (%s)"
+set ylabel "%s%s"
 set datafile separator ","
 set grid
 set term png
 set output '%s'
 plot %a
-%!|} name k k unit output Fmt.(list ~sep:(unit ", ") pp_plots) plots;
-              let i = Fmt.kstrf Sys.command "cd %s && gnuplot %s" t.dir file in
-              if i <> 0 then Fmt.failwith "Cannot generate graph for %s" name
-              else (
-                Fmt.pr "%s has been created.\n%!" (t.dir / output);
-              )
-            ) plots
-        );
-      ) srcs;
+|} title label unit output Fmt.(list ~sep:(unit ", ") pp_plots) plots;
+        flush oc;
+        close_out oc;
+        let cmd = Fmt.strf "cd %s && gnuplot %s" t.dir file in
+        match read_output cmd with
+        | Ok _    -> Fmt.pr "%s has been created.\n%!" (t.dir / output)
+        | Error e -> Fmt.failwith "Cannot generate %s: %s" output e
+      ) t.graphs
   in
   Metrics.set_reporter { Metrics.report; now; at_exit }
