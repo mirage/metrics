@@ -201,7 +201,7 @@ type ('a, 'b) src = ('a, 'b) Src.src
 let tag: type a b. (a, b) Src.src -> a = fun src ->
   let rec aux: type a. tags -> a Tags.t -> a =
     fun tags -> function
-      | Tags.[]       -> tags
+      | Tags.[]       -> List.rev tags
       | Tags.(h :: t) -> (fun a ->
           let tags = field h.k (Other h.pp) a :: tags in
           aux tags t)
