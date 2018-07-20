@@ -42,7 +42,32 @@ let run () =
     f i1 (2 * i);
   done
 
+let src =
+  let open Metrics in
+  let tags = Tags.[
+      string "truc";
+    ] in
+  let graph = Graph.v ~title:"Nice graph!" ~unit:"yay" "toto" in
+  let data i =
+    Data.v [
+      float "CPU" ~graph (float_of_int i **2.);
+      int   "MEM" ~graph i;
+    ] in
+  Src.v "test" ~tags ~data
+
+let i0 t = t "foo"
+let i1 t = t "bar"
+
+let f tags i = Metrics.add src tags (fun m -> m i)
+
+let run2 () =
+  for i = 0 to 100 do
+    f i0 i;
+    f i1 (2 * i);
+  done
+
 let () =
   Metrics.enable_all ();
   Metrics_gnuplot.set_reporter ();
-  run ()
+  run ();
+  run2 ()
