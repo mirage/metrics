@@ -75,8 +75,8 @@ let i1 t = t 12 "toto"
 let timer =
   let open Metrics in
   let tags = Tags.[string "truc"] in
-  let data () = Data.v [] in
-  Src.fn "sleep" ~tags ~data ~duration:true ~status:true
+  let data (_ : (unit, string) rresult) = Data.v [] in
+  Src.v "sleep" ~tags ~data ~duration:true ~status:true
 
 let m1 t = t "foo"
 let m2 t = t "bar"
@@ -84,8 +84,8 @@ let m2 t = t "bar"
 let status =
   let open Metrics in
   let tags = Tags.[] in
-  let data () = Data.v [] in
-  Src.fn "status" ~tags ~data ~duration:false ~status:true
+  let data (_: (unit, unit) rresult) = Data.v [] in
+  Src.v "status" ~tags ~data ~duration:false ~status:true
 
 let d =
   let pp_string = Fmt.fmt "%S" in
@@ -109,21 +109,21 @@ let run () =
   Alcotest.check d "i1" (data ())
     ("test", ["foo", "12"; "bar", "toto"], ["toto", "XXX43"; "titi", "43"], "3");
 
-  let _ = Metrics.rrun timer m1 (fun m -> m ()) (fun () -> Ok (Unix.sleep 1)) in
+  let _ = Metrics.rrun timer m1 (fun () -> Ok (Unix.sleep 1)) in
   Alcotest.check d "m1-ok" (data ())
     ("sleep", ["truc", "foo"], ["duration", "1"; "status", "ok"], "6");
 
-  let () =
-    try Metrics.run timer m1 (fun m -> m ()) (fun () -> raise Not_found)
-    with Not_found -> ()
+  let _ =
+    try Metrics.rrun timer m1 (fun () -> raise Not_found)
+    with Not_found -> Ok ()
   in
   Alcotest.check d "m1-error" (data ())
     ("sleep", ["truc", "foo"], ["duration", "1"; "status", "error"], "9");
 
-  let _ = Metrics.rrun status (fun t -> t) (fun m -> m ()) (fun () -> Ok ()) in
+  let _ = Metrics.rrun status (fun t -> t) (fun () -> Ok ()) in
   Alcotest.check d "status" (data ()) ("status", [], ["status", "ok"], "12");
 
-  let _ = Metrics.rrun status (fun t -> t) (fun m -> m ()) (fun () -> Error ()) in
+  let _ = Metrics.rrun status (fun t -> t) (fun () -> Error ()) in
   Alcotest.check d "status" (data ()) ("status", [], ["status", "error"], "15");
   ()
 

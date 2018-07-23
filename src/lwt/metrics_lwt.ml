@@ -38,30 +38,30 @@ let add src tags f =
 
 let mk t f v = if t then Some (f v) else None
 
-let run src tags data g =
-  let src = Metrics.Src.src src in
+let run src tags g =
   if not (is_active src) then g ()
   else (
     let d0 = now () in
     Lwt.catch
       (fun () -> g () >|= fun x -> Ok x)
-      (fun e  -> Lwt.return (Error (`Exn e)))
+      (fun e  -> Lwt.return (Error e))
     >>= fun r ->
     let duration = mk (Src.duration (Src src)) duration (Int64.sub (now ()) d0) in
     let status x = mk (Src.status (Src src)) status x in
     match r with
     | Ok x ->
-      add_no_check_lwt src tags data ?duration ?status:(status `Ok)
+      add_no_check_lwt src tags ?duration ?status:(status `Ok)
+        (fun f -> Lwt.return (f r))
       >|= fun () ->
       x
-    | Error (`Exn e) ->
-      add_no_check_lwt src tags data ?duration ?status:(status `Error)
+    | Error e ->
+      add_no_check_lwt src tags ?duration ?status:(status `Error)
+        (fun f -> Lwt.return (f r))
       >|= fun () ->
       raise e
   )
 
-let rrun src tags data g =
-  let src = Metrics.Src.src src in
+let rrun src tags g =
   if not (is_active src) then g ()
   else (
     let d0 = now () in
@@ -73,15 +73,18 @@ let rrun src tags data g =
     let status x = mk (Src.status (Src src)) status x in
     match r with
     | Ok (Ok _ as x) ->
-      add_no_check_lwt src tags data ?duration ?status:(status `Ok)
+      add_no_check_lwt src tags ?duration ?status:(status `Ok)
+        (fun f -> Lwt.return (f x))
       >|= fun () ->
       x
-    | Ok (Error _ as x) ->
-      add_no_check_lwt src tags data ?duration ?status:(status `Error)
+    | Ok (Error e as x) ->
+      add_no_check_lwt src tags ?duration ?status:(status `Error)
+        (fun f -> Lwt.return (f (Error (`Error e))))
       >|= fun () ->
       x
-    | Error (`Exn e) ->
-      add_no_check_lwt src tags data ?duration ?status:(status `Error)
+    | Error (`Exn e as x) ->
+      add_no_check_lwt src tags ?duration ?status:(status `Error)
+        (fun f -> Lwt.return (f (Error x)))
       >|= fun () ->
       raise e
   )
