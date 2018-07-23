@@ -2,5 +2,5 @@
  ((name        metrics_gnuplot)
   (public_name metrics-unix)
   (wrapped     false)
-  (modules     (metrics_gnuplot))
-  (libraries   (metrics fmt uuidm unix mtime mtime.clock mtime.clock.os))))
+  (libraries   (lwt.unix metrics fmt uuidm unix mtime mtime.clock
+                mtime.clock.os))))
