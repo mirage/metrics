@@ -357,42 +357,44 @@ let disable_all () =
 
 let gc_quick_stat ~tags =
   let doc = "OCaml memory management counters (quick)" in
+  let graph = Graph.v ~title:doc "words" in
   let data () =
     let stat = Gc.quick_stat () in
     Data.v [
-      float "minor words" stat.Gc.minor_words ;
-      float "promoted words" stat.Gc.promoted_words ;
-      float "major words" stat.Gc.major_words ;
-      uint "minor collections" stat.Gc.minor_collections ;
-      uint "major collections" stat.Gc.major_collections ;
-      uint "heap words" stat.Gc.heap_words ;
-      uint "heap chunks" stat.Gc.heap_chunks ;
-      uint "compactions" stat.Gc.compactions ;
-      uint "top heap words" stat.Gc.top_heap_words ;
-      uint "stack size" stat.Gc.stack_size ;
+      float "minor words" ~graph stat.Gc.minor_words ;
+      float "promoted words" ~graph stat.Gc.promoted_words ;
+      float "major words" ~graph stat.Gc.major_words ;
+      uint "minor collections" ~graph stat.Gc.minor_collections ;
+      uint "major collections" ~graph stat.Gc.major_collections ;
+      uint "heap words" ~graph stat.Gc.heap_words ;
+      uint "heap chunks" ~graph stat.Gc.heap_chunks ;
+      uint "compactions" ~graph stat.Gc.compactions ;
+      uint "top heap words" ~graph stat.Gc.top_heap_words ;
+      uint "stack size" ~graph stat.Gc.stack_size ;
     ] in
   Src.v ~doc ~tags ~data "gc quick"
 
 let gc_stat ~tags =
   let doc = "OCaml memory management counters" in
+  let graph = Graph.v ~title:doc "words" in
   let data () =
     let stat = Gc.stat () in
     Data.v [
-      float "minor words" stat.Gc.minor_words ;
-      float "promoted words" stat.Gc.promoted_words ;
-      float "major words" stat.Gc.major_words ;
-      uint "minor collections" stat.Gc.minor_collections ;
-      uint "major collections" stat.Gc.major_collections ;
-      uint "heap words" stat.Gc.heap_words ;
-      uint "heap chunks" stat.Gc.heap_chunks ;
-      uint "compactions" stat.Gc.compactions ;
-      uint "live words" stat.Gc.live_words ;
-      uint "live blocks" stat.Gc.live_blocks ;
-      uint "free words" stat.Gc.free_words ;
-      uint "free blocks" stat.Gc.free_blocks ;
-      uint "largest free" stat.Gc.largest_free ;
-      uint "fragments" stat.Gc.fragments ;
-      uint "top heap words" stat.Gc.top_heap_words ;
-      uint "stack size" stat.Gc.stack_size ;
+      float "minor words" ~graph stat.Gc.minor_words ;
+      float "promoted words" ~graph stat.Gc.promoted_words ;
+      float "major words" ~graph stat.Gc.major_words ;
+      uint "minor collections" ~graph stat.Gc.minor_collections ;
+      uint "major collections" ~graph stat.Gc.major_collections ;
+      uint "heap words" ~graph stat.Gc.heap_words ;
+      uint "heap chunks" ~graph stat.Gc.heap_chunks ;
+      uint "compactions" ~graph stat.Gc.compactions ;
+      uint "live words" ~graph stat.Gc.live_words ;
+      uint "live blocks" ~graph stat.Gc.live_blocks ;
+      uint "free words" ~graph stat.Gc.free_words ;
+      uint "free blocks" ~graph stat.Gc.free_blocks ;
+      uint "largest free" ~graph stat.Gc.largest_free ;
+      uint "fragments" ~graph stat.Gc.fragments ;
+      uint "top heap words" ~graph stat.Gc.top_heap_words ;
+      uint "stack size" ~graph stat.Gc.stack_size ;
     ] in
   Src.v ~doc ~tags ~data "gc"
