@@ -18,23 +18,33 @@
 (* Reporters *)
 (*************)
 
-let set_simple_reporter () =
+let data_ = Queue.create ()
+let data () = Queue.pop data_
+
+let now =
+  let n = ref ~-1 in
+  fun () ->
+    incr n;
+    Int64.of_int !n
+
+let set_mem_reporter () =
   let report ~tags ~data ~over src k =
     let data_fields = Metrics.Data.fields data in
     let name = Metrics.Src.name src in
-    let pp_field ppf f =
-      Fmt.(pair ~sep:(unit "=") Metrics.pp_key Metrics.pp_value) ppf (f, f)
+    let field f =
+      Fmt.to_to_string Metrics.pp_key f,
+      Fmt.to_to_string Metrics.pp_value f
     in
-    let pp = Fmt.(list ~sep:(unit ",") pp_field) in
+    let fields = List.map field in
     let timestamp = match Metrics.Data.timestamp data with
       | Some ts -> ts
-      | None    -> Fmt.to_to_string Mtime.pp (Mtime_clock.now ())
+      | None    -> Int64.to_string (now ())
     in
-    Fmt.pr "%s %a %a %s\n%!" name pp tags pp data_fields timestamp;
+    let d = name, fields tags, fields data_fields, timestamp in
+    Queue.push d data_ ;
     over ();
     k ()
   in
-  let now () = Mtime_clock.now () |> Mtime.to_uint64_ns in
   let at_exit () = () in
   Metrics.set_reporter { Metrics.report; now; at_exit }
 
@@ -66,7 +76,7 @@ let timer =
   let open Metrics in
   let tags = Tags.[string "truc"] in
   let data () = Data.v [] in
-  Src.fn "sleep" ~tags ~data ~duration:true ~status:false
+  Src.fn "sleep" ~tags ~data ~duration:true ~status:true
 
 let m1 t = t "foo"
 let m2 t = t "bar"
@@ -75,21 +85,49 @@ let status =
   let open Metrics in
   let tags = Tags.[] in
   let data () = Data.v [] in
-  Src.fn "status" ~tags ~data ~duration:true ~status:true
+  Src.fn "status" ~tags ~data ~duration:false ~status:true
+
+let d =
+  let pp_string = Fmt.fmt "%S" in
+  let pp_field = Fmt.Dump.pair pp_string pp_string in
+  let pp ppf (n, t, f, x) =
+    Fmt.pf ppf "(%S, %a, %a, %S)"
+      n Fmt.(Dump.list pp_field) t Fmt.(Dump.list pp_field) f x
+  in
+  Alcotest.testable pp (=)
 
 let run () =
   f i0;
+  Alcotest.check d "i0" (data ())
+    ("test", ["foo", "42"; "bar", "hi!"], ["toto", "XXX42"; "titi", "42"], "0");
+  Alcotest.check d "i0" (data ())
+    ("test", ["foo", "42"; "bar", "hi!"], ["toto", "XXX43"; "titi", "43"], "1");
+
   f i1;
+  Alcotest.check d "i0" (data ())
+    ("test", ["foo", "12"; "bar", "toto"], ["toto", "XXX42"; "titi", "42"], "2");
+  Alcotest.check d "i1" (data ())
+    ("test", ["foo", "12"; "bar", "toto"], ["toto", "XXX43"; "titi", "43"], "3");
+
   let _ = Metrics.rrun timer m1 (fun m -> m ()) (fun () -> Ok (Unix.sleep 1)) in
+  Alcotest.check d "m1-ok" (data ())
+    ("sleep", ["truc", "foo"], ["duration", "1"; "status", "ok"], "6");
+
   let () =
     try Metrics.run timer m1 (fun m -> m ()) (fun () -> raise Not_found)
     with Not_found -> ()
   in
+  Alcotest.check d "m1-error" (data ())
+    ("sleep", ["truc", "foo"], ["duration", "1"; "status", "error"], "9");
+
   let _ = Metrics.rrun status (fun t -> t) (fun m -> m ()) (fun () -> Ok ()) in
+  Alcotest.check d "status" (data ()) ("status", [], ["status", "ok"], "12");
+
   let _ = Metrics.rrun status (fun t -> t) (fun m -> m ()) (fun () -> Error ()) in
+  Alcotest.check d "status" (data ()) ("status", [], ["status", "error"], "15");
   ()
 
 let () =
   Metrics.enable_all ();
-  set_simple_reporter ();
+  set_mem_reporter ();
   run ();
