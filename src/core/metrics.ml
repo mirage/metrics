@@ -16,6 +16,28 @@
 
 module Keys = Set.Make(String)
 
+module Graph = struct
+
+  type t = {
+    title: string option;
+    label: string;
+    unit : string option;
+    id   : int;
+  }
+
+  let title t = t.title
+  let label t = t.label
+  let unit t = t.unit
+  let id t = t.id
+
+  let v ?unit ?title label =
+    let id = Oo.id (object end) in
+    { id; unit; title; label }
+
+end
+
+type graph = Graph.t
+
 type key = string
 
 type 'a ty =
@@ -32,20 +54,36 @@ type 'a ty =
 
 type 'a v = { ty: 'a ty; v: 'a }
 
-type field = F: { key : string
-                ; unit: string option
-                ; doc : string option
-                ; v   : 'a v } -> field
+type field = F: { key   : string
+                ; unit  : string option
+                ; doc   : string option
+                ; graph : graph option
+                ; v     : 'a v } -> field
 
-type 'a field_f = ?doc:string -> ?unit:string -> key -> 'a -> field
+type 'a field_f =
+  ?doc:string -> ?unit:string -> ?graph:graph -> key -> 'a -> field
 
 let key (F {key; _}) = key
 let doc (F {doc; _}) = doc
 let unit (F {unit; _}) = unit
 
-let field ?doc ?unit key ty v = F {key; doc; unit; v = {ty; v}}
+let graphs: (string, Graph.t) Hashtbl.t = Hashtbl.create 27
 
-let ff ty ?doc ?unit k v = field ?doc ?unit k ty v
+let find_graph (F f) =
+  try Hashtbl.find graphs f.key
+  with Not_found ->
+    let g = Graph.v ?unit:f.unit f.key in
+    Hashtbl.add graphs f.key g;
+    g
+
+let graph ((F f) as x) = match f.graph with
+  | Some g -> g
+  | None   -> find_graph x
+
+let field ?doc ?unit ?graph key ty v =
+  F {key; doc; unit; v = {ty; v}; graph}
+
+let ff ty ?doc ?unit ?graph k v = field ?doc ?unit ?graph k ty v
 let string = ff String
 let bool = ff Bool
 let float = ff Float

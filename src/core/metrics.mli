@@ -33,6 +33,32 @@
 
    {e %%VERSION%% - {{:%%PKG_HOMEPAGE%% }homepage}} *)
 
+(** {1:graph Graphs} *)
+
+module Graph: sig
+
+  type t
+  (** The type for graphs. *)
+
+  val title: t -> string option
+  (** [title t] is [t]'s title. *)
+
+  val label: t -> string
+  (** [title t] is [t]'s Y label. *)
+
+  val unit: t -> string option
+  (** [unit t] is [t]'s Y unit. *)
+
+  val id: t -> int
+  (** [id t] is [t]'s unit. *)
+
+  val v: ?unit:string -> ?title:string -> string -> t
+  (** [v n] is a new graph with name [n]. *)
+
+end
+
+type graph = Graph.t
+
 (** {2:fields Fields} *)
 
 type field
@@ -41,7 +67,7 @@ type field
 type key = string
 (** The type for field keys. *)
 
-type 'a field_f = ?doc:string -> ?unit:string -> key -> 'a -> field
+type 'a field_f = ?doc:string -> ?unit:string -> ?graph:graph -> key -> 'a -> field
 (** The type for field functions. *)
 
 val string: string field_f
@@ -95,7 +121,8 @@ type 'a ty =
   | Uint64: int64 ty
   | Other: 'a Fmt.t -> 'a ty
 
-val field: ?doc:string -> ?unit:string -> string -> 'a ty -> 'a -> field
+val field: ?doc:string -> ?unit:string -> ?graph:graph -> string ->
+  'a ty -> 'a -> field
 (** [field ?doc ?unit k ty v] is the field whose key is [k], value type is
    [ty] and value is [v]. *)
 
@@ -109,6 +136,9 @@ val doc: field -> string option
 
 val unit: field -> string option
 (** [unit t] are [t]'s units. *)
+
+val graph: field -> graph
+(** [graph f] is [f]'s graph. *)
 
 type value = V: 'a ty * 'a -> value
 (** Type for values. *)
