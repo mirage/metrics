@@ -290,7 +290,8 @@ module Src : sig
   (** {2 Sources} *)
 
   val v:
-    ?doc:string -> tags:'a Tags.t -> data:'b -> string -> ('a, 'b) src
+    ?doc:string -> ?duration:bool -> ?status:bool ->
+    tags:'a Tags.t -> data:'b -> string -> ('a, 'b) src
   (** [v ?doc ~tags name] is a new source, accepting arbitrary data points.
       [name] is the name
       of the source; it doesn't need to be unique but it is good
@@ -319,25 +320,6 @@ let src =
     ] in
   Src.v "top" ~tags ~data ~doc:"Information about processess"
 ]} *)
-
-  (** {3 Status} *)
-
-  type ('a, 'b) fn
-  (** The type for function source events. *)
-
-  val fn:
-    ?doc:string -> ?duration:bool -> ?status:bool -> tags:'a Tags.t-> data:'b ->
-    string -> ('a, 'b) fn
-  (** Same as {!v} but create a new status source.
-
-      If [duration] is set (it is by default), a {!duration} field is
-      automatically added to new data points.
-
-      If [status] is set (it is by default), a {!status} field is
-      automatically added to new data points. *)
-
-  val src: ('a, 'b) fn -> ('a, 'b) src
-  (** [src f] is the raw source for the function source event [f]. *)
 
   (** {3 Listing Sources} *)
 
@@ -393,17 +375,21 @@ val is_active: ('a, 'b) src -> bool
 val add: ('a, 'b) src -> ('a -> tags) -> ('b -> Data.t) -> unit
 (** [add src t f] adds a new data point to [src] for the tags [t]. *)
 
-val run: ('a, 'b) Src.fn -> ('a -> tags) -> ('b -> Data.t) ->
-  (unit -> 'c) -> 'c
-(** [run src t f g] runs [g ()] and add a new data points.
+val run:
+  ('a, ('b, exn) result -> Data.t) src -> ('a -> tags) -> (unit -> 'b) -> 'b
+(** [run src t f] runs [f ()] and add a new data points.
 
     Depending on [src] configuration, new data points might have
    duration information (e.g. how long [g ()] took, in nano-seconds)
    and status information (e.g. to check if an exception has been
    raised). *)
 
-val rrun: ('a, 'b) Src.fn -> ('a -> tags) -> ('b -> Data.t) ->
-  (unit -> ('c, 'd) result) -> ('c, 'd) result
+type ('a, 'b) rresult = ('a, [`Exn of exn | `Error of 'b]) result
+(** The type for extended results. *)
+
+val rrun:
+  ('a, ('b, 'c) rresult -> Data.t) src ->
+  ('a -> tags) -> (unit -> ('b, 'c) result) -> ('b, 'c) result
 (** Same as {!run} but also record if the result is [Ok] or [Error]. *)
 
 (** {2:reporter Reporters}

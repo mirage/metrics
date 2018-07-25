@@ -180,11 +180,7 @@ module Src = struct
     status: bool;
   }
 
-  type ('a, 'b) fn = ('a, 'b) src
-
   type t = Src: ('a, 'b) src -> t
-
-  let src x = x
 
   let uid =
     let id = ref (-1) in
@@ -196,8 +192,8 @@ module Src = struct
     if _tags.all then true
     else not (Keys.is_empty (Keys.inter _tags.tags tags))
 
-  let fn
-      ?(doc = "undocumented") ?(duration=true) ?(status=true) ~tags ~data name
+  let v
+      ?(doc = "undocumented") ?(duration=false) ?(status=false) ~tags ~data name
     =
     let dom = Tags.domain tags in
     let active = active dom in
@@ -210,8 +206,6 @@ module Src = struct
     } in
     list := Src src :: !list;
     src
-
-  let v ?doc ~tags ~data name = fn ?doc ~tags ~data name
 
   let is_active (Src s) = s.active
   let enable (Src s) = s.active <- true
@@ -297,26 +291,30 @@ let add src tags data = if is_active src then add_no_check src tags data
 
 let mk t f v = if t then Some (f v) else None
 
-let run src tags data g =
+let run src tags g =
   if not (is_active src) then g ()
   else (
     let d0 = now () in
     let r =
       try Ok (g ())
-      with e -> Error (`Exn e)
+      with e -> Error e
     in
     let duration = mk src.duration duration (Int64.sub (now ()) d0) in
     let status x = mk src.status status x in
     match r with
     | Ok x ->
-      add_no_check src tags data ?duration ?status:(status `Ok);
+      add_no_check src tags ?duration ?status:(status `Ok)
+        (fun f -> f r);
       x
-    | Error (`Exn e) ->
-      add_no_check src tags data ?duration ?status:(status `Error);
+    | Error e ->
+      add_no_check src tags ?duration ?status:(status `Error)
+        (fun f -> f r);
       raise e
   )
 
-let rrun src tags data g =
+type ('a, 'b) rresult = ('a, [`Exn of exn | `Error of 'b]) result
+
+let rrun src tags g =
   if not (is_active src) then g ()
   else (
     let d0 = now () in
@@ -328,13 +326,16 @@ let rrun src tags data g =
     let status x = mk src.status status x in
     match r with
     | Ok (Ok _ as x) ->
-      add_no_check src tags data ?duration ?status:(status `Ok);
+      add_no_check src tags ?duration ?status:(status `Ok)
+        (fun f -> f x);
       x
-    | Ok (Error _ as x) ->
-      add_no_check src tags data ?duration ?status:(status `Error);
+    | Ok (Error e as x) ->
+      add_no_check src tags ?duration ?status:(status `Error)
+        (fun f -> f (Error (`Error e)));
       x
-    | Error (`Exn e) ->
-      add_no_check src tags data ?duration ?status:(status `Error);
+    | Error (`Exn e as x) ->
+      add_no_check src tags ?duration ?status:(status `Error)
+        (fun f -> f (Error x));
       raise e
   )
 
