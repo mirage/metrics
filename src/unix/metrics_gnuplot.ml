@@ -162,9 +162,12 @@ let read_output cmd =
   let fd = Unix.openfile temp_file [O_WRONLY; O_TRUNC] 0 in
   let pid = Unix.create_process "sh" [| "sh"; "-c"; cmd |] Unix.stdin fd fd in
   Unix.close fd;
+  let read () = read_file temp_file in
   match snd (Unix.waitpid [] pid) with
-  | WEXITED 0 -> Ok (read_file temp_file)
-  | _         -> Error (read_file temp_file)
+  | exception Unix.(Unix_error (EINTR, _, _))
+              -> Ok (read ())
+  | WEXITED 0 -> Ok (read ())
+  | _         -> Error (read ())
 
 let set_reporter ?dir () =
   let t = empty ?dir () in
