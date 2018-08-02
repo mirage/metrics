@@ -192,7 +192,10 @@ let set_reporter ?dir () =
                   if Src.equal src src_r then
                     let fields = Src.data src in
                     let i = index ~fields field in
-                    let label = Fmt.strf "%a (%s)" pp_tags tags (key field) in
+                    let label = match tags with
+                      | [] -> key field
+                      | _  -> Fmt.strf "%a (%s)" pp_tags tags (key field)
+                    in
                     (file.name, i+2, label) :: acc
                   else
                     acc
@@ -202,7 +205,10 @@ let set_reporter ?dir () =
         let pp_plots ppf (file, i, label) =
           Fmt.pf ppf "'%s' using 1:%d t \"%s\"" file i label
         in
-        Fmt.pf ppf {|
+        match plots with
+        | [] -> ()
+        | _  ->
+          Fmt.pf ppf {|
 set title '%s'
 set xlabel "Time (ns)"
 set ylabel "%s%s"
@@ -212,12 +218,12 @@ set term png
 set output '%s'
 plot %a
 |} title ylabel yunit output Fmt.(list ~sep:(unit ", ") pp_plots) plots;
-        flush oc;
-        close_out oc;
-        let cmd = Fmt.strf "cd %s && gnuplot %s" t.dir file in
-        match read_output cmd with
-        | Ok _    -> Fmt.pr "%s has been created.\n%!" (t.dir / output)
-        | Error e -> Fmt.failwith "Cannot generate %s: %s" output e
+          flush oc;
+          close_out oc;
+          let cmd = Fmt.strf "cd %s && gnuplot %s" t.dir file in
+          match read_output cmd with
+          | Ok _    -> Fmt.pr "%s has been created.\n%!" (t.dir / output)
+          | Error e -> Fmt.failwith "Cannot generate %s: %s" output e
       ) (Graph.list ())
   in
   Metrics.set_reporter { Metrics.report; now; at_exit }

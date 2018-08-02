@@ -69,5 +69,7 @@ let run2 () =
 let () =
   Metrics.enable_all ();
   Metrics_gnuplot.set_reporter ();
+  Metrics_unix.monitor_gc 0.1;
   run ();
+  Lwt_main.run (Lwt_unix.sleep 1.);
   run2 ()
