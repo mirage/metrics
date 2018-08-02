@@ -29,6 +29,7 @@ let add_no_check_lwt src ?duration ?status tags f =
         | None  , Some d -> Data.cons d data
         | Some x, Some y -> Data.cons x (Data.cons y data)
       in
+      init src data;
       k data
     )
 

@@ -47,7 +47,7 @@ let src =
   let tags = Tags.[
       string "truc";
     ] in
-  let graph = Graph.v ~title:"Nice graph!" ~unit:"yay" "toto" in
+  let graph = Graph.v ~title:"Nice graph!" ~yunit:"yay" ~ylabel:"toto" () in
   let data i =
     Data.v [
       float "CPU" ~graph (float_of_int i **2.);

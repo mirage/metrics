@@ -74,7 +74,7 @@ let filename (src, tags) =
   let name = Src.name src in
   Fmt.strf "%a.data" pp_tags (string "" name :: tags)
 
-module Plot = struct
+module Raw = struct
 
   type t = Src.t * tags
 
@@ -86,39 +86,17 @@ module Plot = struct
 
 end
 
-module Graph = struct
-
-  type t = Graph.t
-
-  module Tbl = Hashtbl.Make(struct
-      type nonrec t = t
-      let hash t = Hashtbl.hash (Graph.id t)
-      let equal a b = Graph.id a = Graph.id b
-    end)
-
-end
-
-module Fields = Set.Make(struct
-    type t = Plot.t * int
-    let compare (a, b) (c, d) =
-      match compare (filename a) (filename c) with
-      | 0 -> compare b d
-      | i -> i
-  end)
-
 type t = {
-  dir   : string;
-  plots : file Plot.Tbl.t;
-  graphs: Fields.t Graph.Tbl.t;
+  dir: string;
+  raw: file Raw.Tbl.t;
 }
 
 let uuid = Uuidm.v `V4
 let default_dir = Unix.getcwd () / "_metrics" / Uuidm.to_string uuid
-let empty ?(dir=default_dir) () =
-  { dir; plots = Plot.Tbl.create 8; graphs = Graph.Tbl.create 8 }
+let empty ?(dir=default_dir) () = { dir; raw = Raw.Tbl.create 8 }
 
 let file t src ~data_fields ~tags =
-  try Plot.Tbl.find t.plots (src, tags)
+  try Raw.Tbl.find t.raw (src, tags)
   with Not_found ->
     mkdir t.dir;
     let file = t.dir / filename (src, tags) in
@@ -129,20 +107,11 @@ let file t src ~data_fields ~tags =
       close_out oc
     in
     let file = { name = file; ppf; close; data_fields } in
-    Plot.Tbl.add t.plots (src, tags) file;
+    Raw.Tbl.add t.raw (src, tags) file;
     file
 
 let write t src ~data_fields ~tags fmt =
   let f = file t src ~data_fields ~tags in
-  List.iteri (fun i field ->
-      let g = graph field in
-      let gs =
-        try Graph.Tbl.find t.graphs g
-        with Not_found -> Fields.empty
-      in
-      let gs = Fields.add ((src, tags), i+2) gs in
-      Graph.Tbl.replace t.graphs g gs
-    ) data_fields;
   Fmt.pf f.ppf fmt
 
 let pp_tags =
@@ -189,28 +158,46 @@ let set_reporter ?dir () =
   in
   let now () = Mtime_clock.now () |> Mtime.to_uint64_ns in
   let at_exit () =
-    (* Close all the data files *)
-    Plot.Tbl.iter (fun _ f -> f.close ()) t.plots;
-    Graph.Tbl.iter (fun g fields ->
-        let label = Metrics.Graph.label g in
+    (* Close all the raw data files *)
+    Raw.Tbl.iter (fun _ f -> f.close ()) t.raw;
+    List.iter (fun g ->
+        let fields = Graph.fields g in
+        let ylabel = match Metrics.Graph.ylabel g with
+          | Some t -> t
+          | None   -> match fields with
+            | []   -> ""
+            | h::_ -> key (snd h)
+        in
+        let yunit = match Metrics.Graph.yunit g with
+          | Some u -> Fmt.strf " (%s)" u
+          | None   -> match fields with
+            | []   -> ""
+            | h::_ -> match unit (snd h) with
+              | None   -> ""
+              | Some u -> Fmt.strf " (%s)" u
+        in
         let title = match Metrics.Graph.title g with
           | Some t -> t
-          | None   -> label
+          | None   -> ylabel
         in
-        let unit = match Metrics.Graph.unit g with
-          | None   -> ""
-          | Some u -> Fmt.strf " (%s)" u
-        in
-        let output = Fmt.strf "%s.png" label in
-        let file = t.dir / label ^ ".gp" in
+        let id = string_of_int (Graph.id g) in
+        let output = Fmt.strf "%s.png" id in
+        let file = t.dir / id ^ ".gp" in
         mkdir (Filename.dirname file);
         let oc = open_out file in
         let ppf = Format.formatter_of_out_channel oc in
-        let plots = Fields.fold (fun ((_, tags as plot), i) acc ->
-            let file = filename plot in
-            let label = Fmt.to_to_string pp_tags tags in
-            (file, i, label) :: acc
-          ) fields []
+        let plots =
+          List.fold_left (fun acc (src, field) ->
+              Raw.Tbl.fold (fun (src_r, tags) file acc ->
+                  if Src.equal src src_r then
+                    let fields = Src.data src in
+                    let i = index ~fields field in
+                    let label = Fmt.strf "%a (%s)" pp_tags tags (key field) in
+                    (file.name, i+2, label) :: acc
+                  else
+                    acc
+                ) t.raw acc
+            ) [] fields
         in
         let pp_plots ppf (file, i, label) =
           Fmt.pf ppf "'%s' using 1:%d t \"%s\"" file i label
@@ -224,13 +211,13 @@ set grid
 set term png
 set output '%s'
 plot %a
-|} title label unit output Fmt.(list ~sep:(unit ", ") pp_plots) plots;
+|} title ylabel yunit output Fmt.(list ~sep:(unit ", ") pp_plots) plots;
         flush oc;
         close_out oc;
         let cmd = Fmt.strf "cd %s && gnuplot %s" t.dir file in
         match read_output cmd with
         | Ok _    -> Fmt.pr "%s has been created.\n%!" (t.dir / output)
         | Error e -> Fmt.failwith "Cannot generate %s: %s" output e
-      ) t.graphs
+      ) (Graph.list ())
   in
   Metrics.set_reporter { Metrics.report; now; at_exit }
