@@ -66,10 +66,34 @@ let run2 () =
     f i1 (2 * i);
   done
 
+let timer =
+  let open Metrics in
+  let tags = Tags.[] in
+  let graph = Graph.v ~title:"Timers!!" () in
+  let data = function
+    | Ok t    -> Data.v [int ~graph "timer" (int_of_float @@ t *. 1_000_000_000.)]
+    | Error _ -> Data.v [float ~graph "timer" 0.]
+  in
+  Src.v "sleep" ~tags ~data ~duration:true ~status:false
+
+let run3 () =
+  let open Lwt.Infix in
+  let rec aux = function
+    | 0 -> Lwt.return ()
+    | i ->
+      Metrics_lwt.run timer (fun x -> x)  (fun () ->
+          let t = Random.float 1. in
+          Lwt_unix.sleep t >|= fun _ ->
+          t
+        ) >>= fun _ ->
+      aux (i-1)
+  in
+  aux 10
+
 let () =
   Metrics.enable_all ();
   Metrics_gnuplot.set_reporter ();
   Metrics_unix.monitor_gc 0.1;
   run ();
-  Lwt_main.run (Lwt_unix.sleep 1.);
-  run2 ()
+  run2 ();
+  Lwt_main.run (run3 ())

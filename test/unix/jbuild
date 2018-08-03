@@ -1,6 +1,6 @@
 (executable
  ((name      test)
-  (libraries (metrics-unix mtime.clock.os unix))))
+  (libraries (metrics-lwt metrics-unix mtime.clock.os unix))))
 
 (alias
  ((name runtest)

@@ -69,31 +69,55 @@ type file = {
 }
 
 let filename (src, tags) =
-  (* TODO: quote names *)
   let pp_tags = Fmt.(list ~sep:(unit "-") pp_value) in
   let name = Src.name src in
-  Fmt.strf "%a.data" pp_tags (string "" name :: tags)
+  let file = Fmt.strf "%a.data" pp_tags (string "" name :: tags) in
+  String.map (function
+      | '\n' | '\t' | '\r' | ' ' -> '-'
+      | x -> x
+    ) file
 
 module Raw = struct
-
   type t = Src.t * tags
-
   module Tbl = Hashtbl.Make(struct
     type nonrec t = t
     let hash t = Hashtbl.hash (filename t)
     let equal a b = filename a = filename b
   end)
+end
 
+module Lonely = struct
+  type t = Src.t * string
+  module Tbl = Hashtbl.Make(struct
+    type nonrec t = t
+    let hash (s, n) = Hashtbl.hash (Src.name s ^ n)
+    let equal (a,b) (c,d) = Src.equal a c && String.equal b d
+  end)
 end
 
 type t = {
   dir: string;
   raw: file Raw.Tbl.t;
+  lly: Graph.t Lonely.Tbl.t;
 }
 
 let uuid = Uuidm.v `V4
 let default_dir = Unix.getcwd () / "_metrics" / Uuidm.to_string uuid
-let empty ?(dir=default_dir) () = { dir; raw = Raw.Tbl.create 8 }
+
+let empty ?(dir=default_dir) () =
+  { dir; raw = Raw.Tbl.create 8; lly = Lonely.Tbl.create 17 }
+
+let register_lonely_fields t src data_fields =
+  List.iter (fun f ->
+      if graphs f = None then
+        let k = key f in
+        match Lonely.Tbl.find t.lly (src, k) with
+        | _ -> ()
+        | exception Not_found ->
+          let g = Graph.v ~title:(key f) ~ylabel:(key f) ?yunit:(unit f) () in
+          Lonely.Tbl.add t.lly (src, k) g;
+          Graph.add_field g src f
+    ) data_fields
 
 let file t src ~data_fields ~tags =
   try Raw.Tbl.find t.raw (src, tags)
@@ -153,11 +177,13 @@ let set_reporter ?dir () =
       | _  -> Fmt.pf ppf "%s, " timestamp
     in
     write ~data_fields ~tags t src "%a%a\n" pp_timestamp () pp data_fields;
+    register_lonely_fields t src data_fields;
     over ();
     k ()
   in
   let now () = Mtime_clock.now () |> Mtime.to_uint64_ns in
   let at_exit () =
+    let graphs = Graph.list () in
     (* Close all the raw data files *)
     Raw.Tbl.iter (fun _ f -> f.close ()) t.raw;
     List.iter (fun g ->
@@ -191,24 +217,32 @@ let set_reporter ?dir () =
               Raw.Tbl.fold (fun (src_r, tags) file acc ->
                   if Src.equal src src_r then
                     let fields = Src.data src in
-                    let i = index ~fields field in
+                    let i = index ~fields field + 2 in
                     let label = match tags with
                       | [] -> key field
                       | _  -> Fmt.strf "%a (%s)" pp_tags tags (key field)
                     in
-                    (file.name, i+2, label) :: acc
+                    let xerrorbar =
+                      try Some (index_key ~fields Key.duration + 2)
+                      with Not_found -> None
+                    in
+                    (file.name, i, label, xerrorbar) :: acc
                   else
                     acc
                 ) t.raw acc
             ) [] fields
         in
-        let pp_plots ppf (file, i, label) =
-          Fmt.pf ppf "'%s' using 1:%d t \"%s\"" file i label
+        let pp_plots ppf (file, i, label, xerrorbar) =
+          Fmt.pf ppf "'%s' using 1:%d t \"%s\"" file i label;
+          match xerrorbar with
+          | None   -> ()
+          | Some e -> Fmt.pf ppf ", '%s' using 1:%d:($1-$%d):1 with xerrorbars notitle" file i e
         in
         match plots with
         | [] -> ()
         | _  ->
           Fmt.pf ppf {|
+unset errorbars
 set title '%s'
 set xlabel "Time (ns)"
 set ylabel "%s%s"
@@ -224,6 +258,6 @@ plot %a
           match read_output cmd with
           | Ok _    -> Fmt.pr "%s has been created.\n%!" (t.dir / output)
           | Error e -> Fmt.failwith "Cannot generate %s: %s" output e
-      ) (Graph.list ())
+      ) graphs
   in
   Metrics.set_reporter { Metrics.report; now; at_exit }
