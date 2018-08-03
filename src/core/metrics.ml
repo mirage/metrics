@@ -87,12 +87,14 @@ module Data = struct
 
 end
 
-let index ~fields (F f) =
+let index_key ~fields f =
   let rec aux n = function
     | []       -> raise Not_found
-    | h::t -> if h = f.key then n else aux (n+1) t
+    | h::t -> if h = f then n else aux (n+1) t
   in
   aux 0 fields
+
+let index ~fields (F f) = index_key ~fields f.key
 
 type tags = field list
 type data = Data.t

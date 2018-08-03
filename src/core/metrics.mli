@@ -129,6 +129,9 @@ val index: fields:string list -> field -> int
 (** [index ~fields f] is [f]'s index in the list of field keys
    [fields]. Raise [Not_found] if [f] is not a field of [t]. *)
 
+val index_key: fields:string list -> string -> int
+(** Same as {!index} but using field keys instead. *)
+
 (** {3 Pretty-printing Fields} *)
 
 val pp_key: field Fmt.t
