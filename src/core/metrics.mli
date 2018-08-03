@@ -116,6 +116,9 @@ val doc: field -> string option
 val unit: field -> string option
 (** [unit t] are [t]'s units. *)
 
+val graphs: field -> graph list option
+(** [graphs t] is the graphs where [t] appears. *)
+
 type value = V: 'a ty * 'a -> value
 (** Type for values. *)
 

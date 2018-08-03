@@ -71,6 +71,7 @@ end
 let key (F {key; _}) = key
 let doc (F {doc; _}) = doc
 let unit (F {unit; _}) = unit
+let graphs (F {graphs; _}) = graphs
 
 module Data = struct
   type timestamp = string
