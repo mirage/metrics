@@ -16,28 +16,6 @@
 
 module Keys = Set.Make(String)
 
-module Graph = struct
-
-  type t = {
-    title: string option;
-    label: string;
-    unit : string option;
-    id   : int;
-  }
-
-  let title t = t.title
-  let label t = t.label
-  let unit t = t.unit
-  let id t = t.id
-
-  let v ?unit ?title label =
-    let id = Oo.id (object end) in
-    { id; unit; title; label }
-
-end
-
-type graph = Graph.t
-
 type key = string
 
 type 'a ty =
@@ -54,50 +32,16 @@ type 'a ty =
 
 type 'a v = { ty: 'a ty; v: 'a }
 
-type field = F: { key   : string
-                ; unit  : string option
-                ; doc   : string option
-                ; graph : graph option
-                ; v     : 'a v } -> field
+type graph = int
 
-type 'a field_f =
-  ?doc:string -> ?unit:string -> ?graph:graph -> key -> 'a -> field
+type field = F: {
+    key   : string;
+    unit  : string option;
+    doc   : string option;
+    graphs: int list option;
+    v     : 'a v }
+  -> field
 
-let key (F {key; _}) = key
-let doc (F {doc; _}) = doc
-let unit (F {unit; _}) = unit
-
-let graphs: (string, Graph.t) Hashtbl.t = Hashtbl.create 27
-
-let find_graph (F f) =
-  try Hashtbl.find graphs f.key
-  with Not_found ->
-    let g = Graph.v ?unit:f.unit f.key in
-    Hashtbl.add graphs f.key g;
-    g
-
-let graph ((F f) as x) = match f.graph with
-  | Some g -> g
-  | None   -> find_graph x
-
-let field ?doc ?unit ?graph key ty v =
-  F {key; doc; unit; v = {ty; v}; graph}
-
-let ff ty ?doc ?unit ?graph k v = field ?doc ?unit ?graph k ty v
-let string = ff String
-let bool = ff Bool
-let float = ff Float
-let int = ff Int
-let int32 = ff Int32
-let int64 = ff Int64
-let uint = ff Uint
-let uint32 = ff Uint32
-let uint64 = ff Uint64
-
-type status = [`Ok | `Error]
-let string_of_status = function `Ok -> "ok" | `Error -> "error"
-let status v = field "status" (Other (Fmt.of_to_string string_of_status)) v
-let duration i = int64 "duration"  i
 
 module Tags = struct
 
@@ -124,22 +68,10 @@ module Tags = struct
 
 end
 
-let pp: type a. a ty -> a Fmt.t = fun ty ppf v -> match ty with
-  | String -> Fmt.string ppf v
-  | Bool   -> Fmt.bool ppf v
-  | Int    -> Fmt.int ppf v
-  | Int32  -> Fmt.int32 ppf v
-  | Int64  -> Fmt.int64 ppf v
-  | Float  -> Fmt.float ppf v
-  | Uint   -> Fmt.uint ppf v
-  | Uint32 -> Fmt.uint32 ppf v
-  | Uint64 -> Fmt.uint64 ppf v
-  | Other pp -> pp ppf v
-
-type value = V: 'a ty * 'a -> value
-let pp_key ppf f = Fmt.string ppf (key f)
-let pp_value ppf (F {v={ty; v}; _}) = pp ty ppf v
-let value (F {v={ty; v}; _}) = V (ty, v)
+let key (F {key; _}) = key
+let doc (F {doc; _}) = doc
+let unit (F {unit; _}) = unit
+let graphs (F {graphs; _}) = graphs
 
 module Data = struct
   type timestamp = string
@@ -152,7 +84,17 @@ module Data = struct
   let fields t = t.fields
   let cons h t = { t with fields = h :: t.fields }
   let v ?timestamp fields = { timestamp; fields }
+
 end
+
+let index_key ~fields f =
+  let rec aux n = function
+    | []       -> raise Not_found
+    | h::t -> if h = f then n else aux (n+1) t
+  in
+  aux 0 fields
+
+let index ~fields (F f) = index_key ~fields f.key
 
 type tags = field list
 type data = Data.t
@@ -178,6 +120,7 @@ module Src = struct
     mutable active: bool;
     duration: bool;
     status: bool;
+    mutable data_fields: string list option;
   }
 
   type t = Src: ('a, 'b) src -> t
@@ -202,7 +145,7 @@ module Src = struct
       duration; status;
       dom; uid = uid ();
       name; doc; tags; data;
-      active; dmap
+      active; dmap; data_fields=None;
     } in
     list := Src src :: !list;
     src
@@ -218,17 +161,173 @@ module Src = struct
   let duration (Src s) = s.duration
   let status (Src s) = s.status
 
-  let pp ppf (Src src) = Format.fprintf ppf
-      "@[<1>(src@ @[<1>(name %S)@]@ @[<1>(uid %d)@] @[<1>(doc %S)@])@]"
-      src.name src.uid src.doc
+  let data (Src s) = match s.data_fields with
+    | None    -> []
+    | Some  l -> l
+
+  let pp_strings ppf l =
+    Fmt.pf ppf "@[<1>(%a)@]" Fmt.(list ~sep:(unit " ") string) l
+
+  let pp ppf (Src src) =
+    let tags = Keys.elements (Tags.domain src.tags) in
+    let data = match src.data_fields with
+      | None   -> []
+      | Some l -> l
+    in
+    Format.fprintf ppf
+      "@[<1>(src@ \
+      \  @[<1>(name %S)@]@ \
+      \  @[<1>(uid %d)@] \
+      \  @[<1>(doc %S)@]) \
+      \  @[<1>(tags (%a))@] \
+      \  @[<1>(data (%a))@] \
+       @]"
+      src.name src.uid src.doc pp_strings tags pp_strings data
 
   let list () = !list
+
   let update () =
     List.iter (fun (Src s) -> s.active <- active s.dom) (list ())
 
 end
 
+module Fields = Set.Make(struct
+    type t = Src.t * field
+    let compare (a, F x) (b, F y) = match Src.compare a b with
+      | 0 -> String.compare x.key y.key
+      | i -> i
+  end)
+
 type ('a, 'b) src = ('a, 'b) Src.src
+
+module Graph = struct
+
+  type t = int
+
+  type v = {
+    title : string option;
+    ylabel: string option;
+    yunit : string option;
+    id    : int;
+    mutable active: bool;
+    mutable fields: Fields.t;
+  }
+
+  let tbl = Hashtbl.create 27
+
+  let v ?title ?ylabel ?yunit () =
+    let id = Oo.id (object end) in
+    let t =
+      { id; yunit; title; ylabel; active = false; fields = Fields.empty }
+    in
+    Hashtbl.add tbl id t;
+    id
+
+  let get id = Hashtbl.find tbl id
+
+  let title t = (get t).title
+  let ylabel t = (get t).ylabel
+  let yunit t = (get t).yunit
+  let id t = (get t).id
+  let enable t = (get t).active <- true
+  let disable t = (get t).active <- false
+  let is_active t = (get t).active
+
+  let list () = Hashtbl.fold (fun x _ acc -> x :: acc) tbl []
+  let fields g = Fields.fold (fun f acc -> f :: acc) (get g).fields []
+
+  let add_field g src f =
+    let g = get g in
+    g.fields <- Fields.add (src, f) g.fields
+
+  let remove_field g src f =
+    let g = get g in
+    g.fields <- Fields.filter (fun (x, y) ->
+        not (Src.equal x src && String.equal f (key y))
+      ) g.fields
+
+end
+
+let init t data =
+  match t.Src.data_fields with
+  | Some _ -> ()
+  | None   ->
+    let df = List.map key data.Data.fields in
+    t.data_fields <- Some df;
+    List.iter (fun (F f) ->
+        match f.graphs with
+        | None    -> ()
+        | Some gs ->
+          List.iter (fun g -> Graph.add_field g (Src t) (F f)) gs
+      ) data.Data.fields
+
+type 'a field_f =
+  ?doc:string -> ?unit:string -> ?graph:graph -> ?graphs:graph list ->
+  key -> 'a -> field
+
+let field ?doc ?unit ?graph ?graphs key ty v =
+  let graphs = match graph, graphs with
+    | None  , None    -> None
+    | Some g, None    -> Some [g]
+    | None  , Some gs -> Some gs
+    | Some g, Some gs -> Some (g::gs)
+  in
+  F {key; doc; unit; v = {ty; v}; graphs}
+
+let ff ty ?doc ?unit ?graph ?graphs k v = field ?doc ?unit ?graph ?graphs k ty v
+let string = ff String
+let bool = ff Bool
+let float = ff Float
+let int = ff Int
+let int32 = ff Int32
+let int64 = ff Int64
+let uint = ff Uint
+let uint32 = ff Uint32
+let uint64 = ff Uint64
+
+type status = [`Ok | `Error]
+let string_of_status = function `Ok -> "ok" | `Error -> "error"
+
+module Key = struct
+  let duration = "duration"
+  let status = "status"
+  let minor_words = "minor words"
+  let promoted_words = "promoted words"
+  let major_words = "major words"
+  let minor_collections = "minor collections"
+  let major_collections = "major collections"
+  let heap_words = "heap words"
+  let heap_chunks = "heap chunks"
+  let compactions = "compactions"
+  let live_words = "live words"
+  let live_blocks = "live blocks"
+  let free_words = "free words"
+  let free_blocks = "free blocks"
+  let largest_free = "largest free"
+  let fragments = "fragments"
+  let top_heap_words = "top heap words"
+  let stack_size = "stack size"
+end
+
+let status v = field Key.status (Other (Fmt.of_to_string string_of_status)) v
+let duration i = int64 Key.duration  i
+
+let pp: type a. a ty -> a Fmt.t = fun ty ppf v -> match ty with
+  | String -> Fmt.string ppf v
+  | Bool   -> Fmt.bool ppf v
+  | Int    -> Fmt.int ppf v
+  | Int32  -> Fmt.int32 ppf v
+  | Int64  -> Fmt.int64 ppf v
+  | Float  -> Fmt.float ppf v
+  | Uint   -> Fmt.uint ppf v
+  | Uint32 -> Fmt.uint32 ppf v
+  | Uint64 -> Fmt.uint64 ppf v
+  | Other pp -> pp ppf v
+
+type value = V: 'a ty * 'a -> value
+let pp_key ppf f = Fmt.string ppf (key f)
+let pp_value ppf (F {v={ty; v}; _}) = pp ty ppf v
+let value (F {v={ty; v}; _}) = V (ty, v)
 
 let tag: type a b. (a, b) Src.src -> a = fun src ->
   let rec aux: type a. tags -> a Tags.t -> a =
@@ -282,6 +381,7 @@ let add_no_check src ?duration ?status tags f =
         | None  , Some d -> Data.cons d data
         | Some x, Some y -> Data.cons x (Data.cons y data)
       in
+      init src data;
       k data
     )
 
@@ -358,44 +458,44 @@ let disable_all () =
 
 let gc_quick_stat ~tags =
   let doc = "OCaml memory management counters (quick)" in
-  let graph = Graph.v ~title:doc "words" in
+  let graph = Graph.v ~title:doc ~ylabel:"words" () in
   let data () =
     let stat = Gc.quick_stat () in
     Data.v [
-      float "minor words" ~graph stat.Gc.minor_words ;
-      float "promoted words" ~graph stat.Gc.promoted_words ;
-      float "major words" ~graph stat.Gc.major_words ;
-      uint "minor collections" ~graph stat.Gc.minor_collections ;
-      uint "major collections" ~graph stat.Gc.major_collections ;
-      uint "heap words" ~graph stat.Gc.heap_words ;
-      uint "heap chunks" ~graph stat.Gc.heap_chunks ;
-      uint "compactions" ~graph stat.Gc.compactions ;
-      uint "top heap words" ~graph stat.Gc.top_heap_words ;
-      uint "stack size" ~graph stat.Gc.stack_size ;
+      float Key.minor_words ~graph stat.Gc.minor_words ;
+      float Key.promoted_words ~graph stat.Gc.promoted_words ;
+      float Key.major_words ~graph stat.Gc.major_words ;
+      uint Key.minor_collections ~graph stat.Gc.minor_collections ;
+      uint Key.major_collections ~graph  stat.Gc.major_collections ;
+      uint Key.heap_words ~graph stat.Gc.heap_words ;
+      uint Key.heap_chunks ~graph stat.Gc.heap_chunks ;
+      uint Key.compactions ~graph stat.Gc.compactions ;
+      uint Key.top_heap_words ~graph stat.Gc.top_heap_words ;
+      uint Key.stack_size ~graph stat.Gc.stack_size ;
     ] in
   Src.v ~doc ~tags ~data "gc quick"
 
 let gc_stat ~tags =
   let doc = "OCaml memory management counters" in
-  let graph = Graph.v ~title:doc "words" in
+  let graph = Graph.v ~title:doc ~ylabel:"words" () in
   let data () =
     let stat = Gc.stat () in
     Data.v [
-      float "minor words" ~graph stat.Gc.minor_words ;
-      float "promoted words" ~graph stat.Gc.promoted_words ;
-      float "major words" ~graph stat.Gc.major_words ;
-      uint "minor collections" ~graph stat.Gc.minor_collections ;
-      uint "major collections" ~graph stat.Gc.major_collections ;
-      uint "heap words" ~graph stat.Gc.heap_words ;
-      uint "heap chunks" ~graph stat.Gc.heap_chunks ;
-      uint "compactions" ~graph stat.Gc.compactions ;
-      uint "live words" ~graph stat.Gc.live_words ;
-      uint "live blocks" ~graph stat.Gc.live_blocks ;
-      uint "free words" ~graph stat.Gc.free_words ;
-      uint "free blocks" ~graph stat.Gc.free_blocks ;
-      uint "largest free" ~graph stat.Gc.largest_free ;
-      uint "fragments" ~graph stat.Gc.fragments ;
-      uint "top heap words" ~graph stat.Gc.top_heap_words ;
-      uint "stack size" ~graph stat.Gc.stack_size ;
+      float Key.minor_words ~graph stat.Gc.minor_words ;
+      float Key.promoted_words ~graph stat.Gc.promoted_words ;
+      float Key.major_words ~graph stat.Gc.major_words ;
+      uint Key.minor_collections ~graph stat.Gc.minor_collections ;
+      uint Key.major_collections ~graph stat.Gc.major_collections ;
+      uint Key.heap_words ~graph stat.Gc.heap_words ;
+      uint Key.heap_chunks ~graph stat.Gc.heap_chunks ;
+      uint Key.compactions ~graph stat.Gc.compactions ;
+      uint Key.live_words ~graph stat.Gc.live_words ;
+      uint Key.live_blocks ~graph stat.Gc.live_blocks ;
+      uint Key.free_words ~graph stat.Gc.free_words ;
+      uint Key.free_blocks ~graph stat.Gc.free_blocks ;
+      uint Key.largest_free ~graph stat.Gc.largest_free ;
+      uint Key.fragments ~graph stat.Gc.fragments ;
+      uint Key.top_heap_words ~graph stat.Gc.top_heap_words ;
+      uint Key.stack_size ~graph stat.Gc.stack_size ;
     ] in
   Src.v ~doc ~tags ~data "gc"
