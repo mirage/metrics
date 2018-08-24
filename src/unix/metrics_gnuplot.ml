@@ -68,14 +68,20 @@ type file = {
   close      : unit -> unit;
 }
 
+let escape s =
+  let b = Buffer.create (String.length s) in
+  String.iter (function
+      | '\n' | '\t' | '\r' | ':' | '(' | ')' -> ()
+      | 'a' .. 'z' | '0' .. '9' | 'A' .. 'Z' | '.' as x -> Buffer.add_char b x
+      | _ -> Buffer.add_char b '-'
+    ) s;
+  Buffer.contents b
+
 let filename (src, tags) =
   let pp_tags = Fmt.(list ~sep:(unit "-") pp_value) in
   let name = Src.name src in
-  let file = Fmt.strf "%a.data" pp_tags (string "" name :: tags) in
-  String.map (function
-      | '\n' | '\t' | '\r' | ' ' -> '-'
-      | x -> x
-    ) file
+  let file = Fmt.strf "%a" pp_tags (string "" name :: tags) in
+  escape file ^ ".data"
 
 module Raw = struct
   type t = Src.t * tags
@@ -109,8 +115,8 @@ let empty ?(dir=default_dir) () =
 
 let register_lonely_fields t src data_fields =
   List.iter (fun f ->
-      if graphs f = None then
-        let k = key f in
+      let k = key f in
+      if graphs f = None &&  k <> Key.duration && k <> Key.status then
         match Lonely.Tbl.find t.lly (src, k) with
         | _ -> ()
         | exception Not_found ->
@@ -139,7 +145,8 @@ let write t src ~data_fields ~tags fmt =
   Fmt.pf f.ppf fmt
 
 let pp_tags =
-  let pp_tag ppf t = Fmt.pf ppf "%a=%a" pp_key t pp_value t in
+  let e pp ppf x = Fmt.string ppf (escape (Fmt.to_to_string pp x)) in
+  let pp_tag ppf t = Fmt.pf ppf "%a=%a" (e pp_key) t (e pp_value) t in
   Fmt.(list ~sep:(unit ", ") pp_tag)
 
 let read_file file =
@@ -206,9 +213,9 @@ let set_reporter ?dir () =
           | Some t -> t
           | None   -> ylabel
         in
-        let id = string_of_int (Graph.id g) in
-        let output = Fmt.strf "%s.png" id in
-        let file = t.dir / id ^ ".gp" in
+        let basename = Fmt.strf "%s-%d" (escape title) (Graph.id g) in
+        let output = basename ^ ".png" in
+        let file = t.dir / basename ^ ".gp" in
         mkdir (Filename.dirname file);
         let oc = open_out file in
         let ppf = Format.formatter_of_out_channel oc in
