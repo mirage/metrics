@@ -70,10 +70,14 @@ type file = {
 
 let escape s =
   let b = Buffer.create (String.length s) in
+  let e = ref false in
   String.iter (function
       | '\n' | '\t' | '\r' | ':' | '(' | ')' -> ()
-      | 'a' .. 'z' | '0' .. '9' | 'A' .. 'Z' | '.' as x -> Buffer.add_char b x
-      | _ -> Buffer.add_char b '-'
+      | 'a' .. 'z' | '0' .. '9' | 'A' .. 'Z' | '.' as x ->
+        if !e then Buffer.add_char b '-';
+        e := false;
+        Buffer.add_char b x
+      | _ -> e := true
     ) s;
   Buffer.contents b
 
@@ -169,6 +173,87 @@ let read_output cmd =
   | WEXITED 0 -> Ok (read ())
   | _         -> Error (read ())
 
+let plots_of_field t xlabel acc (src, field) =
+  Raw.Tbl.fold (fun (src_r, tags) file acc ->
+      if Src.equal src src_r then
+        let fields = Src.data src in
+        let i = index ~fields field + 2 in
+        let label = match tags with
+          | [] -> key field
+          | _  -> Fmt.strf "%a (%s)" pp_tags tags (key field)
+        in
+        match xlabel with
+        | `Timestamp -> (file.name, 1, i, label) :: acc
+        | `Duration  ->
+          let duration =
+            try Some (index_key ~fields Key.duration + 2)
+            with Not_found -> None
+          in
+          match duration with
+          | None   -> acc
+          | Some d -> (file.name, d, i, label) :: acc
+      else
+        acc
+    ) t.raw acc
+
+let plot_graph t xlabel g =
+  let fields = Graph.fields g in
+  let ylabel = match Metrics.Graph.ylabel g with
+    | Some t -> t
+    | None   -> match fields with
+      | []   -> ""
+      | h::_ -> key (snd h)
+  in
+  let yunit = match Metrics.Graph.yunit g with
+    | Some u -> Fmt.strf " (%s)" u
+    | None   -> match fields with
+      | []   -> ""
+      | h::_ -> match unit (snd h) with
+        | None   -> ""
+        | Some u -> Fmt.strf " (%s)" u
+  in
+  let title = match Metrics.Graph.title g with
+    | Some t -> t
+    | None   -> ylabel
+  in
+  let suffix = match xlabel with
+    | `Timestamp -> ""
+    | `Duration  -> ".d"
+  in
+  let basename = Fmt.strf "%s-%d%s" (escape title) (Graph.id g) suffix in
+  let output = basename ^ ".png" in
+  let file = t.dir / basename ^ ".gp" in
+  mkdir (Filename.dirname file);
+  let oc = open_out file in
+  let ppf = Format.formatter_of_out_channel oc in
+  let plots = List.fold_left (plots_of_field t xlabel) [] fields in
+  let xlabel = match xlabel with
+    | `Timestamp -> "Time (ns)"
+    | `Duration  -> "Duration (ns)"
+  in
+  let pp_plots ppf (file, i, j, label) =
+    Fmt.pf ppf "'%s' using %d:%d t \"%s\"" file i j label;
+  in
+  match plots with
+  | [] -> ()
+  | _  ->
+    Fmt.pf ppf {|
+set title '%s'
+set xlabel '%s'
+set ylabel "%s%s"
+set datafile separator ","
+set grid
+set term png
+set output '%s'
+plot %a
+|} title xlabel ylabel yunit output Fmt.(list ~sep:(unit ", ") pp_plots) plots;
+    flush oc;
+    close_out oc;
+    let cmd = Fmt.strf "cd %s && gnuplot %s" t.dir file in
+    match read_output cmd with
+    | Ok _    -> Fmt.pr "%s has been created.\n%!" (t.dir / output)
+    | Error e -> Fmt.failwith "Cannot generate %s: %s" output e
+
 let set_reporter ?dir () =
   let t = empty ?dir () in
   let report ~tags ~data ~over src k =
@@ -193,78 +278,7 @@ let set_reporter ?dir () =
     let graphs = Graph.list () in
     (* Close all the raw data files *)
     Raw.Tbl.iter (fun _ f -> f.close ()) t.raw;
-    List.iter (fun g ->
-        let fields = Graph.fields g in
-        let ylabel = match Metrics.Graph.ylabel g with
-          | Some t -> t
-          | None   -> match fields with
-            | []   -> ""
-            | h::_ -> key (snd h)
-        in
-        let yunit = match Metrics.Graph.yunit g with
-          | Some u -> Fmt.strf " (%s)" u
-          | None   -> match fields with
-            | []   -> ""
-            | h::_ -> match unit (snd h) with
-              | None   -> ""
-              | Some u -> Fmt.strf " (%s)" u
-        in
-        let title = match Metrics.Graph.title g with
-          | Some t -> t
-          | None   -> ylabel
-        in
-        let basename = Fmt.strf "%s-%d" (escape title) (Graph.id g) in
-        let output = basename ^ ".png" in
-        let file = t.dir / basename ^ ".gp" in
-        mkdir (Filename.dirname file);
-        let oc = open_out file in
-        let ppf = Format.formatter_of_out_channel oc in
-        let plots =
-          List.fold_left (fun acc (src, field) ->
-              Raw.Tbl.fold (fun (src_r, tags) file acc ->
-                  if Src.equal src src_r then
-                    let fields = Src.data src in
-                    let i = index ~fields field + 2 in
-                    let label = match tags with
-                      | [] -> key field
-                      | _  -> Fmt.strf "%a (%s)" pp_tags tags (key field)
-                    in
-                    let xerrorbar =
-                      try Some (index_key ~fields Key.duration + 2)
-                      with Not_found -> None
-                    in
-                    (file.name, i, label, xerrorbar) :: acc
-                  else
-                    acc
-                ) t.raw acc
-            ) [] fields
-        in
-        let pp_plots ppf (file, i, label, xerrorbar) =
-          Fmt.pf ppf "'%s' using 1:%d t \"%s\"" file i label;
-          match xerrorbar with
-          | None   -> ()
-          | Some e -> Fmt.pf ppf ", '%s' using 1:%d:($1-$%d):1 with xerrorbars notitle" file i e
-        in
-        match plots with
-        | [] -> ()
-        | _  ->
-          Fmt.pf ppf {|
-unset errorbars
-set title '%s'
-set xlabel "Time (ns)"
-set ylabel "%s%s"
-set datafile separator ","
-set grid
-set term png
-set output '%s'
-plot %a
-|} title ylabel yunit output Fmt.(list ~sep:(unit ", ") pp_plots) plots;
-          flush oc;
-          close_out oc;
-          let cmd = Fmt.strf "cd %s && gnuplot %s" t.dir file in
-          match read_output cmd with
-          | Ok _    -> Fmt.pr "%s has been created.\n%!" (t.dir / output)
-          | Error e -> Fmt.failwith "Cannot generate %s: %s" output e
-      ) graphs
+    List.iter (plot_graph t `Timestamp) graphs;
+    List.iter (plot_graph t `Duration) graphs
   in
   Metrics.set_reporter { Metrics.report; now; at_exit }
