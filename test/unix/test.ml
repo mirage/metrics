@@ -20,50 +20,40 @@
 
 let src =
   let open Metrics in
-  let tags = Tags.[
-      int    "pid";
-      string "hostname";
-    ] in
+  let tags = Tags.[int "pid"; string "hostname"] in
   let data i =
-    Data.v [
-      float "CPU" ~unit:"%" (float_of_int i **2.);
-      int   "MEM" ~unit:"KiB" i;
-    ] in
+    Data.v
+      [float "CPU" ~unit:"%" (float_of_int i ** 2.); int "MEM" ~unit:"KiB" i]
+  in
   Src.v "test" ~tags ~data
 
 let i0 t = t 42 "foo.local"
 let i1 t = t 12 "toto.com"
-
 let f tags i = Metrics.add src tags (fun m -> m i)
 
 let run () =
   for i = 0 to 100 do
     f i0 i;
-    f i1 (2 * i);
+    f i1 (2 * i)
   done
 
 let src =
   let open Metrics in
-  let tags = Tags.[
-      string "truc";
-    ] in
+  let tags = Tags.[string "truc"] in
   let graph = Graph.v ~title:"Nice graph!" ~yunit:"yay" ~ylabel:"toto" () in
   let data i =
-    Data.v [
-      float "CPU" ~graph (float_of_int i **2.);
-      int   "MEM" ~graph i;
-    ] in
+    Data.v [float "CPU" ~graph (float_of_int i ** 2.); int "MEM" ~graph i]
+  in
   Src.v "test" ~tags ~data
 
 let i0 t = t "foo"
 let i1 t = t "bar"
-
 let f tags i = Metrics.add src tags (fun m -> m i)
 
 let run2 () =
   for i = 0 to 100 do
     f i0 i;
-    f i1 (2 * i);
+    f i1 (2 * i)
   done
 
 let timer =
@@ -71,7 +61,8 @@ let timer =
   let tags = Tags.[] in
   let graph = Graph.v ~title:"Timers!!" () in
   let data = function
-    | Ok t    -> Data.v [int ~graph "timer" (int_of_float @@ t *. 1_000_000_000.)]
+    | Ok t ->
+      Data.v [int ~graph "timer" (int_of_float @@ (t *. 1_000_000_000.))]
     | Error _ -> Data.v [float ~graph "timer" 0.]
   in
   Src.v "sleep" ~tags ~data ~duration:true ~status:false
@@ -81,12 +72,12 @@ let run3 () =
   let rec aux = function
     | 0 -> Lwt.return ()
     | i ->
-      Metrics_lwt.run timer (fun x -> x)  (fun () ->
+      Metrics_lwt.run timer
+        (fun x -> x)
+        (fun () ->
           let t = Random.float 1. in
-          Lwt_unix.sleep t >|= fun _ ->
-          t
-        ) >>= fun _ ->
-      aux (i-1)
+          Lwt_unix.sleep t >|= fun _ -> t )
+      >>= fun _ -> aux (i - 1)
   in
   aux 10
 

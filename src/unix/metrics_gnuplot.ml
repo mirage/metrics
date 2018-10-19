@@ -14,71 +14,62 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-(* The structure is as follows:
-   - Every tagged source has its own file:
-      "<src-name>-<tag1>-...<tagn>.data"
-   - A data-point is a newline in that file.
-   - There's a toplevel gnuplot script per graph,
-     which plots all the source beloging to that same graph
-     together.
-   - There's a toplevel global script which plots all
-     the graphs.
-*)
+(* The structure is as follows: - Every tagged source has its own file:
+   "<src-name>-<tag1>-...<tagn>.data" - A data-point is a newline in that file.
+   - There's a toplevel gnuplot script per graph, which plots all the source
+   beloging to that same graph together. - There's a toplevel global script
+   which plots all the graphs. *)
 
 (* Unix++ *)
 
 let safe_mkdir path =
   try
-    if not (Sys.is_directory path) then Fmt.failwith "mkdir: %s: is a file" path
-  with Sys_error _ ->
-    Unix.mkdir path 0o755
+    if not (Sys.is_directory path) then
+      Fmt.failwith "mkdir: %s: is a file" path
+  with Sys_error _ -> Unix.mkdir path 0o755
 
 let split_dirs path =
   let rec aux acc path =
     match Filename.dirname path with
     | "." -> Filename.basename path :: acc
     | "/" -> "" :: Filename.basename path :: acc
-    | s   -> aux (Filename.basename path :: acc) s
+    | s -> aux (Filename.basename path :: acc) s
   in
-  match Filename.basename path with
-  | "/" -> [""; ""]
-  | _   -> aux [] path
+  match Filename.basename path with "/" -> [""; ""] | _ -> aux [] path
 
 let mkdir path =
   let rec aux parent = function
-    | []   -> ()
-    | h::t ->
+    | [] -> ()
+    | h :: t ->
       let path = Filename.concat parent h in
-      safe_mkdir path;
-      aux path t
+      safe_mkdir path; aux path t
   in
-  match split_dirs path with
-  | "" ::xs -> aux "/" xs
-  | xs      -> aux "." xs
+  match split_dirs path with "" :: xs -> aux "/" xs | xs -> aux "." xs
 
 (* /Unix++ *)
 
 open Metrics
-let (/) = Filename.concat
 
-type file = {
-  name       : string;
-  ppf        : Format.formatter;
-  data_fields: field list;
-  close      : unit -> unit;
-}
+let ( / ) = Filename.concat
+
+type file =
+  { name: string
+  ; ppf: Format.formatter
+  ; data_fields: field list
+  ; close: unit -> unit }
 
 let escape s =
   let b = Buffer.create (String.length s) in
   let e = ref false in
-  String.iter (function
+  String.iter
+    (function
       | '\n' | '\t' | '\r' | ':' | '(' | ')' -> ()
-      | 'a' .. 'z' | '0' .. '9' | 'A' .. 'Z' | '.' as x ->
+      | ('a' .. 'z' | '0' .. '9' | 'A' .. 'Z' | '.') as x ->
         if !e then Buffer.add_char b '-';
         e := false;
         Buffer.add_char b x
-      | _ -> e := true
-    ) s;
+      | _ -> e := true)
+    s;
   Buffer.contents b
 
 let filename (src, tags) =
@@ -89,8 +80,10 @@ let filename (src, tags) =
 
 module Raw = struct
   type t = Src.t * tags
-  module Tbl = Hashtbl.Make(struct
+
+  module Tbl = Hashtbl.Make (struct
     type nonrec t = t
+
     let hash t = Hashtbl.hash (filename t)
     let equal a b = filename a = filename b
   end)
@@ -98,49 +91,44 @@ end
 
 module Lonely = struct
   type t = Src.t * string
-  module Tbl = Hashtbl.Make(struct
+
+  module Tbl = Hashtbl.Make (struct
     type nonrec t = t
+
     let hash (s, n) = Hashtbl.hash (Src.name s ^ n)
-    let equal (a,b) (c,d) = Src.equal a c && String.equal b d
+    let equal (a, b) (c, d) = Src.equal a c && String.equal b d
   end)
 end
 
-type t = {
-  dir: string;
-  raw: file Raw.Tbl.t;
-  lly: Graph.t Lonely.Tbl.t;
-}
+type t = {dir: string; raw: file Raw.Tbl.t; lly: Graph.t Lonely.Tbl.t}
 
 let uuid = Uuidm.v `V4
 let default_dir = Unix.getcwd () / "_metrics" / Uuidm.to_string uuid
 
-let empty ?(dir=default_dir) () =
-  { dir; raw = Raw.Tbl.create 8; lly = Lonely.Tbl.create 17 }
+let empty ?(dir = default_dir) () =
+  {dir; raw= Raw.Tbl.create 8; lly= Lonely.Tbl.create 17}
 
 let register_lonely_fields t src data_fields =
-  List.iter (fun f ->
+  List.iter
+    (fun f ->
       let k = key f in
-      if graphs f = None &&  k <> Key.duration && k <> Key.status then
+      if graphs f = None && k <> Key.duration && k <> Key.status then
         match Lonely.Tbl.find t.lly (src, k) with
         | _ -> ()
         | exception Not_found ->
           let g = Graph.v ~title:(key f) ~ylabel:(key f) ?yunit:(unit f) () in
           Lonely.Tbl.add t.lly (src, k) g;
-          Graph.add_field g src f
-    ) data_fields
+          Graph.add_field g src f )
+    data_fields
 
 let file t src ~data_fields ~tags =
-  try Raw.Tbl.find t.raw (src, tags)
-  with Not_found ->
+  try Raw.Tbl.find t.raw (src, tags) with Not_found ->
     mkdir t.dir;
     let file = t.dir / filename (src, tags) in
     let oc = open_out file in
     let ppf = Format.formatter_of_out_channel oc in
-    let close () =
-      Format.fprintf ppf "%!";
-      close_out oc
-    in
-    let file = { name = file; ppf; close; data_fields } in
+    let close () = Format.fprintf ppf "%!"; close_out oc in
+    let file = {name= file; ppf; close; data_fields} in
     Raw.Tbl.add t.raw (src, tags) file;
     file
 
@@ -156,7 +144,11 @@ let pp_tags =
 let read_file file =
   let ic = open_in file in
   let r = ref [] in
-  try while true do r := input_line ic :: !r done; assert false
+  try
+    while true do
+      r := input_line ic :: !r
+    done;
+    assert false
   with End_of_file ->
     close_in ic;
     String.concat "\n" (List.rev !r)
@@ -164,80 +156,78 @@ let read_file file =
 let read_output cmd =
   let temp_file = Filename.temp_file "metrics" "gnuplot" in
   let fd = Unix.openfile temp_file [O_WRONLY; O_TRUNC] 0 in
-  let pid = Unix.create_process "sh" [| "sh"; "-c"; cmd |] Unix.stdin fd fd in
+  let pid = Unix.create_process "sh" [|"sh"; "-c"; cmd|] Unix.stdin fd fd in
   Unix.close fd;
   let read () = read_file temp_file in
   match snd (Unix.waitpid [] pid) with
-  | exception Unix.(Unix_error (EINTR, _, _))
-              -> Ok (read ())
+  | exception Unix.(Unix_error (EINTR, _, _)) -> Ok (read ())
   | WEXITED 0 -> Ok (read ())
-  | _         -> Error (read ())
+  | _ -> Error (read ())
 
 let plots_of_field t xlabel acc (src, field) =
-  Raw.Tbl.fold (fun (src_r, tags) file acc ->
+  Raw.Tbl.fold
+    (fun (src_r, tags) file acc ->
       if Src.equal src src_r then
         let fields = Src.data src in
         let i = index ~fields field + 2 in
-        let label = match tags with
+        let label =
+          match tags with
           | [] -> key field
-          | _  -> Fmt.strf "%a (%s)" pp_tags tags (key field)
+          | _ -> Fmt.strf "%a (%s)" pp_tags tags (key field)
         in
         match xlabel with
         | `Timestamp -> (file.name, 1, i, label) :: acc
-        | `Duration  ->
+        | `Duration -> (
           let duration =
-            try Some (index_key ~fields Key.duration + 2)
-            with Not_found -> None
+            try Some (index_key ~fields Key.duration + 2) with Not_found ->
+              None
           in
           match duration with
-          | None   -> acc
-          | Some d -> (file.name, d, i, label) :: acc
-      else
-        acc
-    ) t.raw acc
+          | None -> acc
+          | Some d -> (file.name, d, i, label) :: acc )
+      else acc )
+    t.raw acc
 
 let plot_graph t xlabel g =
   let fields = Graph.fields g in
-  let ylabel = match Metrics.Graph.ylabel g with
+  let ylabel =
+    match Metrics.Graph.ylabel g with
     | Some t -> t
-    | None   -> match fields with
-      | []   -> ""
-      | h::_ -> key (snd h)
+    | None -> ( match fields with [] -> "" | h :: _ -> key (snd h) )
   in
-  let yunit = match Metrics.Graph.yunit g with
+  let yunit =
+    match Metrics.Graph.yunit g with
     | Some u -> Fmt.strf " (%s)" u
-    | None   -> match fields with
-      | []   -> ""
-      | h::_ -> match unit (snd h) with
-        | None   -> ""
-        | Some u -> Fmt.strf " (%s)" u
+    | None -> (
+      match fields with
+      | [] -> ""
+      | h :: _ -> (
+        match unit (snd h) with None -> "" | Some u -> Fmt.strf " (%s)" u ) )
   in
-  let title = match Metrics.Graph.title g with
-    | Some t -> t
-    | None   -> ylabel
+  let title =
+    match Metrics.Graph.title g with Some t -> t | None -> ylabel
   in
-  let suffix = match xlabel with
-    | `Timestamp -> ""
-    | `Duration  -> ".d"
-  in
+  let suffix = match xlabel with `Timestamp -> "" | `Duration -> ".d" in
   let basename = Fmt.strf "%s-%d%s" (escape title) (Graph.id g) suffix in
-  let output = "out" / basename ^ ".png" in
-  let file = t.dir / basename ^ ".gp" in
+  let output = ("out" / basename) ^ ".png" in
+  let file = (t.dir / basename) ^ ".gp" in
   mkdir (Filename.dirname file);
   let oc = open_out file in
   let ppf = Format.formatter_of_out_channel oc in
   let plots = List.fold_left (plots_of_field t xlabel) [] fields in
-  let xlabel = match xlabel with
+  let xlabel =
+    match xlabel with
     | `Timestamp -> "Time (ns)"
-    | `Duration  -> "Duration (ns)"
+    | `Duration -> "Duration (ns)"
   in
   let pp_plots ppf (file, i, j, label) =
-    Fmt.pf ppf "'%s' using %d:%d t \"%s\"" file i j label;
+    Fmt.pf ppf "'%s' using %d:%d t \"%s\"" file i j label
   in
   match plots with
   | [] -> ()
-  | _  ->
-    Fmt.pf ppf {|
+  | _ -> (
+    Fmt.pf ppf
+      {|
 set title '%s'
 set xlabel '%s'
 set ylabel "%s%s"
@@ -246,15 +236,18 @@ set grid
 set term png
 set output '%s'
 plot %a
-|} title xlabel ylabel yunit output Fmt.(list ~sep:(unit ", ") pp_plots) plots;
+|}
+      title xlabel ylabel yunit output
+      Fmt.(list ~sep:(unit ", ") pp_plots)
+      plots;
     flush oc;
     close_out oc;
     let out_dir = t.dir / "out" in
     if not (Sys.file_exists out_dir) then Unix.mkdir out_dir 0o755;
     let cmd = Fmt.strf "cd %s && gnuplot %s" t.dir file in
     match read_output cmd with
-    | Ok _    -> Fmt.pr "%s has been created.\n%!" (t.dir / output)
-    | Error e -> Fmt.failwith "Cannot generate %s: %s" output e
+    | Ok _ -> Fmt.pr "%s has been created.\n%!" (t.dir / output)
+    | Error e -> Fmt.failwith "Cannot generate %s: %s" output e )
 
 let set_reporter ?dir () =
   let t = empty ?dir () in
@@ -262,13 +255,15 @@ let set_reporter ?dir () =
     let data_fields = Data.fields data in
     (* TODO: quote values *)
     let pp = Fmt.(list ~sep:(unit ", ") pp_value) in
-    let timestamp = match Data.timestamp data with
+    let timestamp =
+      match Data.timestamp data with
       | Some ts -> ts
-      | None    -> Int64.to_string (Mtime_clock.elapsed_ns ())
+      | None -> Int64.to_string (Mtime_clock.elapsed_ns ())
     in
-    let pp_timestamp ppf () = match data_fields with
+    let pp_timestamp ppf () =
+      match data_fields with
       | [] -> Fmt.string ppf timestamp
-      | _  -> Fmt.pf ppf "%s, " timestamp
+      | _ -> Fmt.pf ppf "%s, " timestamp
     in
     write ~data_fields ~tags t src "%a%a\n" pp_timestamp () pp data_fields;
     register_lonely_fields t src data_fields;
@@ -283,4 +278,4 @@ let set_reporter ?dir () =
     List.iter (plot_graph t `Timestamp) graphs;
     List.iter (plot_graph t `Duration) graphs
   in
-  Metrics.set_reporter { Metrics.report; now; at_exit }
+  Metrics.set_reporter {Metrics.report; now; at_exit}

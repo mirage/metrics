@@ -1,0 +1,10 @@
+version=0.8
+module-item-spacing=compact
+break-struct=natural
+break-infix=fit-or-vertical
+parens-tuple=multi-line-only
+wrap-comments=true
+doc-comments=after
+field-space=loose
+sequence-style=terminator
+cases-exp-indent=2

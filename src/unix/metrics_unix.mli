@@ -14,10 +14,10 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-val monitor_gc: ?quick:bool -> float -> unit
-(** [monitor_gc f] starts a monitoring threads which adds new entries
-   every [f] seconds. If [quick] is set (the default) [Gc.quick_stats
-   ()] is called, otherwise it's [Gc.stats ()]. *)
+(** [monitor_gc f] starts a monitoring threads which adds new entries every [f]
+    seconds. If [quick] is set (the default) [Gc.quick_stats ()] is called,
+    otherwise it's [Gc.stats ()]. *)
+val monitor_gc : ?quick:bool -> float -> unit
 
-val disable_gc_stat: unit -> unit
-val enable_gc_stat: unit -> unit
+val disable_gc_stat : unit -> unit
+val enable_gc_stat : unit -> unit

@@ -14,7 +14,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-
 (** {!Lwt} monitoring.
 
     The monitoring functions of this module return [Lwt] threads that proceed
@@ -27,17 +26,21 @@
 
 open Metrics
 
-val add: ('a, 'b) src -> ('a -> tags) -> ('b -> data Lwt.t) -> unit Lwt.t
 (** [add src t f] adds a new data point to [src]. *)
+val add : ('a, 'b) src -> ('a -> tags) -> ('b -> data Lwt.t) -> unit Lwt.t
 
-val run:
-  ('a, ('b, exn) result -> Data.t) src -> ('a -> tags) ->
-  (unit -> 'b Lwt.t) -> 'b Lwt.t
-(** [run src f] runs [f ()] and records in a new data point the time
-   it took. [run] will also record the status of the computation,
-   e.g. whether an exception has been raised. *)
+(** [run src f] runs [f ()] and records in a new data point the time it took.
+    [run] will also record the status of the computation, e.g. whether an
+    exception has been raised. *)
+val run :
+     ('a, ('b, exn) result -> Data.t) src
+  -> ('a -> tags)
+  -> (unit -> 'b Lwt.t)
+  -> 'b Lwt.t
 
-val rrun:
-  ('a, ('b, [`Exn of exn| `Error of 'c]) result -> Data.t) src -> ('a -> tags) ->
-  (unit -> ('b, 'c) result Lwt.t) -> ('b, 'c) result Lwt.t
 (** Same as {!run} but also record if the result is [Ok] or [Error]. *)
+val rrun :
+     ('a, ('b, [`Exn of exn | `Error of 'c]) result -> Data.t) src
+  -> ('a -> tags)
+  -> (unit -> ('b, 'c) result Lwt.t)
+  -> ('b, 'c) result Lwt.t
