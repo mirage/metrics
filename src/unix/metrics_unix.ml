@@ -20,16 +20,15 @@ open Lwt.Infix
 let gc_quick_stat = gc_quick_stat ~tags:Tags.[]
 let gc_stat = gc_stat ~tags:Tags.[]
 
-let monitor_gc ?(quick=true) delay =
-  let id x =  x in
+let monitor_gc ?(quick = true) delay =
+  let id x = x in
   let f () =
     if quick then add gc_quick_stat id (fun d -> d ())
     else add gc_stat id (fun d -> d ())
   in
   let rec loop () =
     f ();
-    Lwt_unix.sleep delay >>= fun () ->
-    loop ()
+    Lwt_unix.sleep delay >>= fun () -> loop ()
   in
   Lwt.async loop
 
