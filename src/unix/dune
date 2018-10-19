@@ -1,0 +1,6 @@
+(library
+  (name        metrics_gnuplot)
+  (public_name metrics-unix)
+  (wrapped     false)
+  (libraries   lwt.unix metrics fmt uuidm unix mtime mtime.clock
+               mtime.clock.os))

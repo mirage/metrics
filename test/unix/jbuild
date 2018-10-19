@@ -1,9 +1,0 @@
-(executable
- ((name      test)
-  (libraries (metrics-lwt metrics-unix mtime.clock.os unix))))
-
-(alias
- ((name runtest)
-  (deps (test.exe))
-  (package metrics-unix)
-  (action (run ${exe:test.exe}))))

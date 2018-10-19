@@ -1,4 +1,0 @@
-(library
- ((name        metrics)
-  (public_name metrics)
-  (libraries   (fmt))))
