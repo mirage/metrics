@@ -96,7 +96,7 @@ let d =
   in
   Alcotest.testable pp (=)
 
-let run () =
+let test_f () =
   f i0;
   Alcotest.check d "i0" (data ())
     ("test", ["foo", "42"; "bar", "hi!"], ["toto", "XXX42"; "titi", "42"], "0");
@@ -107,8 +107,9 @@ let run () =
   Alcotest.check d "i0" (data ())
     ("test", ["foo", "12"; "bar", "toto"], ["toto", "XXX42"; "titi", "42"], "2");
   Alcotest.check d "i1" (data ())
-    ("test", ["foo", "12"; "bar", "toto"], ["toto", "XXX43"; "titi", "43"], "3");
+    ("test", ["foo", "12"; "bar", "toto"], ["toto", "XXX43"; "titi", "43"], "3")
 
+let test_timer () =
   let _ = Metrics.rrun timer m1 (fun () -> Ok (Unix.sleep 1)) in
   Alcotest.check d "m1-ok" (data ())
     ("sleep", ["truc", "foo"], ["duration", "1"; "status", "ok"], "6");
@@ -118,8 +119,9 @@ let run () =
     with Not_found -> Ok ()
   in
   Alcotest.check d "m1-error" (data ())
-    ("sleep", ["truc", "foo"], ["duration", "1"; "status", "error"], "9");
+    ("sleep", ["truc", "foo"], ["duration", "1"; "status", "error"], "9")
 
+let test_status () =
   let _ = Metrics.rrun status (fun t -> t) (fun () -> Ok ()) in
   Alcotest.check d "status" (data ()) ("status", [], ["status", "ok"], "12");
 
@@ -130,4 +132,10 @@ let run () =
 let () =
   Metrics.enable_all ();
   set_mem_reporter ();
-  run ();
+  Alcotest.run "metrics" [
+    "base", [
+      "f", `Quick, test_f;
+      "timer", `Quick, test_timer;
+      "status", `Quick, test_status
+    ]
+  ]

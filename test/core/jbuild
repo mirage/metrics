@@ -1,9 +1,0 @@
-(executable
- ((name      test)
-  (libraries (metrics alcotest unix))))
-
-(alias
- ((name runtest)
-  (deps (test.exe))
-  (package metrics)
-  (action (run ${exe:test.exe}))))
