@@ -19,3 +19,4 @@ depends: [
   "metrics"
   "mtime"
 ]
+synopsis: "Unix backend for the Metrics library"
