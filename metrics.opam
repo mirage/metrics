@@ -2,10 +2,10 @@ opam-version: "2.0"
 maintainer:   "thomas@gazagnaire.org"
 authors:      ["Thomas Gazagnaire"]
 license:      "ISC"
-homepage:     "https://github.com/samoht/metrics"
-bug-reports:  "https://github.com/samoht/metrics/issues"
-dev-repo:     "git+https://github.com/samoht/metrics.git"
-doc:          "https://samoht.github.io/metrics/"
+homepage:     "https://github.com/mirage/metrics"
+bug-reports:  "https://github.com/mirage/metrics/issues"
+dev-repo:     "git+https://github.com/mirage/metrics.git"
+doc:          "https://mirage.github.io/metrics/"
 
 build: [
  ["dune" "subst"] {pinned}
@@ -17,5 +17,5 @@ depends: [
   "ocaml" {>= "4.04.0"}
   "dune" {build}
   "fmt"
-  "alcotest" {test}
+  "alcotest" {with-test}
 ]
