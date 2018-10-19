@@ -221,7 +221,7 @@ let plot_graph t xlabel g =
     | `Duration  -> ".d"
   in
   let basename = Fmt.strf "%s-%d%s" (escape title) (Graph.id g) suffix in
-  let output = basename ^ ".png" in
+  let output = "out" / basename ^ ".png" in
   let file = t.dir / basename ^ ".gp" in
   mkdir (Filename.dirname file);
   let oc = open_out file in
@@ -249,6 +249,8 @@ plot %a
 |} title xlabel ylabel yunit output Fmt.(list ~sep:(unit ", ") pp_plots) plots;
     flush oc;
     close_out oc;
+    let out_dir = t.dir / "out" in
+    if not (Sys.file_exists out_dir) then Unix.mkdir out_dir 0o755;
     let cmd = Fmt.strf "cd %s && gnuplot %s" t.dir file in
     match read_output cmd with
     | Ok _    -> Fmt.pr "%s has been created.\n%!" (t.dir / output)
