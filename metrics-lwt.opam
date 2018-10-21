@@ -18,3 +18,4 @@ depends: [
   "metrics"
   "lwt"
 ]
+synopsis: "Lwt backend for the Metrics library"
