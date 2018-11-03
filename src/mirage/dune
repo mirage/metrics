@@ -1,0 +1,5 @@
+(library
+  (name        metrics_mirage)
+  (public_name metrics-mirage)
+  (synopsis    "Mirage metrics reporter")
+  (libraries   metrics metrics-influx ipaddr lwt mirage-clock mirage-stack-lwt cstruct logs))
