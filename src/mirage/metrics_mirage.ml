@@ -27,7 +27,7 @@ module Influx (CLOCK : Mirage_clock.MCLOCK) (STACK : Mirage_stack_lwt.V4) = stru
       ~doc:"name of the virtual machine"
       "vm" Metrics.String
 
-  let create clock stack ?hostname dst ?(port = 8094) () =
+  let create clock stack ?interval ?hostname dst ?(port = 8094) () =
     let tcp = STACK.tcpv4 stack in
     let f = ref None in
     let m = Lwt_mutex.create () in
@@ -63,6 +63,6 @@ module Influx (CLOCK : Mirage_clock.MCLOCK) (STACK : Mirage_stack_lwt.V4) = stru
       let now () = CLOCK.elapsed_ns clock
       and tags = match hostname with None -> [] | Some host -> [vmname host]
       in
-      Ok (Metrics_influx.lwt_reporter ~tags send now)
+      Ok (Metrics_influx.lwt_reporter ~tags ?interval send now)
     | Error () -> Error ()
 end

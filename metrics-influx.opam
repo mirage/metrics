@@ -18,6 +18,7 @@ depends: [
   "metrics"
   "astring"
   "fmt"
+  "duration"
   "lwt"
 ]
 synopsis: "Influx reporter for the Metrics library"
