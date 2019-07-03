@@ -91,11 +91,3 @@ let pp ppf (Src src) =
 let list () = !list
 let update () = List.iter (fun (Src s) -> s.active <- active s.dom) (list ())
 
-module SrcFieldSet = Set.Make (struct
-    type nonrec t = t * Field.t
-
-    let compare (a, x) (b, y) =
-      match compare a b with
-      | 0 -> String.compare (Field.key x) (Field.key y)
-      | i -> i
-  end)

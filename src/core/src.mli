@@ -98,5 +98,3 @@ val enable : t -> unit
 
 val disable : t -> unit
 (** [disable src] disables the metric source [src]. *)
-
-module SrcFieldSet : Set.S with type elt = t * Field.t
