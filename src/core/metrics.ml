@@ -105,7 +105,6 @@ module Src = struct
     ; dom : Keys.t
     ; tags : 'a Tags.t
     ; data : 'b
-    ; dmap : data -> data
     ; mutable active : bool
     ; duration : bool
     ; status : bool
@@ -127,7 +126,6 @@ module Src = struct
       ~data name =
     let dom = Tags.domain tags in
     let active = active dom in
-    let dmap x = x in
     let src =
       { duration
       ; status
@@ -138,7 +136,6 @@ module Src = struct
       ; tags
       ; data
       ; active
-      ; dmap
       ; data_fields = None }
     in
     list := Src src :: !list;
