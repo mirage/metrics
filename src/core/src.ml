@@ -91,9 +91,8 @@ let pp ppf (Src src) =
 let list () = !list
 let update () = List.iter (fun (Src s) -> s.active <- active s.dom) (list ())
 
-type t_outer = t (* HACK: This is awful *)
 module SrcFieldSet = Set.Make (struct
-    type t = t_outer * Field.t
+    type nonrec t = t * Field.t
 
     let compare (a, x) (b, y) =
       match compare a b with
