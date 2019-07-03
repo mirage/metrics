@@ -32,123 +32,12 @@
 
     {e %%VERSION%% - {{:%%PKG_HOMEPAGE%% }homepage}} *)
 
-(** {2:fields Fields} *)
+module Graph : module type of Graph
+module Field : module type of Field
+module Key : module type of Key
 
-(** The type for metric {{!graphs}graphs}. *)
-type graph
-
-(** The type for metric fields. *)
-type field
-
-(** The type for field keys. *)
-type key = string
-
-(** The type for field functions. *)
-type 'a field_f =
-     ?doc:string
-  -> ?unit:string
-  -> ?graph:graph
-  -> ?graphs:graph list
-  -> key
-  -> 'a
-  -> field
-
-val string : string field_f
-(** [string ?doc k v] is the field whose key is [k] and value is [v]. *)
-
-val int : int field_f
-(** [int ?doc k i] is the field whose key is [k] and value is [i]. *)
-
-val uint : int field_f
-(** [uint ?doc k i] is the field whose key is [k] and value is [i]. *)
-
-val int32 : int32 field_f
-(** [int32 k i] is the field whose key is [k] and value is [i]. *)
-
-val uint32 : int32 field_f
-(** [uint32 ?doc k i] is the field whose key is [k] and value is [i]. *)
-
-val int64 : int64 field_f
-(** [int64 ?doc k i] is the field whose key is [k] and value is [i]. *)
-
-val uint64 : int64 field_f
-(** [uint64 ?doc k i] is the field whose key is [k] and value is [i]. *)
-
-val float : float field_f
-(** [uint ?doc k f] is the field whose key is [k] and value is [i]. *)
-
-val bool : bool field_f
-(** [uint ?doc k b] is the field whose key is [k] and value is [i]. *)
-
-val duration : int64 -> field
-(** [duration t] is the field [("duration", t, "ns")]. *)
-
-(** The type for process status. *)
-type status = [`Ok | `Error]
-
-val status : status -> field
-(** [status t] is the field [("status", "ok")] or [("status", "error")]. *)
-
-(** {3 Custom fields} *)
-
-(** The type of supported values in metric fields. *)
-type 'a ty =
-  | String : string ty
-  | Bool : bool ty
-  | Float : float ty
-  | Int : int ty
-  | Int32 : int32 ty
-  | Int64 : int64 ty
-  | Uint : int ty
-  | Uint32 : int32 ty
-  | Uint64 : int64 ty
-  | Other : 'a Fmt.t -> 'a ty
-
-val field :
-     ?doc:string
-  -> ?unit:string
-  -> ?graph:graph
-  -> ?graphs:graph list
-  -> string
-  -> 'a ty
-  -> 'a
-  -> field
-(** [field ?doc ?unit k ty v] is the field whose key is [k], value type is [ty]
-    and value is [v]. *)
-
-(** {3 Reading Fields} *)
-
-val key : field -> string
-(** [key f] is [f]'s key. *)
-
-val doc : field -> string option
-(** [doc f] is [f]'s documentation. *)
-
-val unit : field -> string option
-(** [unit t] are [t]'s units. *)
-
-val graphs : field -> graph list option
-(** [graphs t] is the graphs where [t] appears. *)
-
-type value = V : 'a ty * 'a -> value  (** Type for values. *)
-
-val value : field -> value
-(** [value f] is [f]'s value. *)
-
-val index : fields:string list -> field -> int
-(** [index ~fields f] is [f]'s index in the list of field keys [fields]. Raise
-    [Not_found] if [f] is not a field of [t]. *)
-
-val index_key : fields:string list -> string -> int
-(** Same as {!index} but using field keys instead. *)
-
-(** {3 Pretty-printing Fields} *)
-
-val pp_key : field Fmt.t
-(** [pp_key] is the pretty-printer for field keys. *)
-
-val pp_value : field Fmt.t
-(** [pp_value] is the pretty-printer for field values, using sensible default. *)
+(** Metric sources. *)
+module Src : module type of Src
 
 (** {2:data Data points} *)
 
@@ -176,19 +65,19 @@ module Data : sig
   (** [timestamp t] is [t]'s timestamp (if any). If it is [None], then the
       reporter will add a new timestamp automatically. *)
 
-  val v : ?timestamp:timestamp -> field list -> t
+  val v : ?timestamp:timestamp -> Field.t list -> t
   (** [v ?timestamp f] is the measure [f], as a the list metric name and value,
       and the timestamp [timestamp]. If [timestamp] is not provided, it will be
       set be the reporter. Raise [Invalid_argument] is a key or a value
       contains an invalid character. *)
 
-  val keys : t -> key list
+  val keys : t -> Field.key list
   (** [keys t] is [t]'s keys. *)
 
-  val fields : t -> field list
+  val fields : t -> Field.t list
   (** [fields t] is [t]'s fields. *)
 
-  val cons : field -> t -> t
+  val cons : Field.t -> t -> t
   (** [cons f t] is the new data having the same timestamp as [t] and the
       fields [f :: fields t]. *)
 end
@@ -200,49 +89,52 @@ type data = Data.t
 
 (** [Tags] indexes metric sources, and allow to enable/disable data collection
     at runtime. *)
-module Tags : sig
-  (** {2 Tags}
+module Tags : module type of Tags
 
-      [Tags] are heterogeneous {{!t}lists} of key names and type of values,
-      which are associated to data sources. Filters on key names allow to
-      select which data sources is {{!enabling}enabled} at runtime. Disabled
-      data sources have a very low cost -- only allocating a closure.
-
-      For instance, to define the tags "PID", "IP" and "host", respectively of
-      type [int], [Ipaddr.t]: {[ let ipaddr = Tags.v Ipaddr.pp_hum let t =
-      Tags.[ int "PID" ; ipaddr "IP" ; string "host"; ] ]} *)
-
-  (** The type for tag values. *)
-  type 'a v
-
-  (** The type tags: an heterogeneous list of names and types. *)
-  type 'a t = [] : field list t | ( :: ) : 'a v * 'b t -> ('a -> 'b) t
-
-  (** {3 Tag Values} *)
-
-  val v : 'a Fmt.t -> string -> 'a v
-  (** [ty pp] is a new typed tag. *)
-
-  val string : string -> string v
-  val float : string -> float v
-  val int : string -> int v
-  val uint : string -> int v
-  val int32 : string -> int32 v
-  val uint32 : string -> int32 v
-  val int64 : string -> int64 v
-  val uint64 : string -> int64 v
-  val bool : string -> bool v
-end
+(* TODO: restrict the interface of Tags *)
+(* sig
+ *   (\** {2 Tags}
+ *
+ *       [Tags] are heterogeneous {{!t}lists} of key names and type of values,
+ *       which are associated to data sources. Filters on key names allow to
+ *       select which data sources is {{!enabling}enabled} at runtime. Disabled
+ *       data sources have a very low cost -- only allocating a closure.
+ *
+ *       For instance, to define the tags "PID", "IP" and "host", respectively of
+ *       type [int], [Ipaddr.t]: {[ let ipaddr = Tags.v Ipaddr.pp_hum let t =
+ *       Tags.[ int "PID" ; ipaddr "IP" ; string "host"; ] ]} *\)
+ *
+ *   (\** The type for tag values. *\)
+ *   type 'a v
+ *
+ *   (\** The type tags: an heterogeneous list of names and types. *\)
+ *   type 'a t = [] : Field.t list t | ( :: ) : 'a v * 'b t -> ('a -> 'b) t
+ *
+ *   (\** {3 Tag Values} *\)
+ *
+ *   val v : 'a Fmt.t -> string -> 'a v
+ *   (\** [ty pp] is a new typed tag. *\)
+ *
+ *   val string : string -> string v
+ *   val float : string -> float v
+ *   val int : string -> int v
+ *   val uint : string -> int v
+ *   val int32 : string -> int32 v
+ *   val uint32 : string -> int32 v
+ *   val int64 : string -> int64 v
+ *   val uint64 : string -> int64 v
+ *   val bool : string -> bool v
+ * end *)
 
 (** The type for metric tags. Used to distinguish the various entities that are
     being measured. *)
-type tags = field list
+type tags = Field.t list
 
-val enable_tag : key -> unit
+val enable_tag : Field.key -> unit
 (** [enable_tag t] enables all the registered metric sources having the tag
     [t]. *)
 
-val disable_tag : key -> unit
+val disable_tag : Field.key -> unit
 (** [disable_tag t] disables all the registered metric sources having the tag
     [t]. *)
 
@@ -252,150 +144,7 @@ val enable_all : unit -> unit
 val disable_all : unit -> unit
 (** [disable_all ()] disables all registered metric sources. *)
 
-(** {2:srcs Sources} *)
-
-(** The type for metric sources. A source defines a named unit for a time
-    series. ['a] is the type of the function used to create new {{!data}data
-    points}. ['b] is the type for {!tags}. *)
-type ('a, 'b) src
-
-(** Metric sources. *)
-module Src : sig
-  (** {2 Sources} *)
-
-  val v :
-       ?doc:string
-    -> ?duration:bool
-    -> ?status:bool
-    -> tags:'a Tags.t
-    -> data:'b
-    -> string
-    -> ('a, 'b) src
-  (** [v ?doc ~tags name] is a new source, accepting arbitrary data points.
-      [name] is the name of the source; it doesn't need to be unique but it is
-      good practice to prefix the name with the name of your package or library
-      (e.g. ["mypkg.network"]). [doc] is a documentation string describing the
-      source, defaults to ["undocumented"]. [tags] is the collection if (typed)
-      tags which will be used to tag and index the measure and are used
-      identify the various metrics. The source will be enabled on creation iff
-      one of tag in [tags] has been enabled with {!enable_tag}.
-
-      For instance, to create a metric to collect CPU and memory usage on
-      various machines, indexed by [PID], [host] name and [IP] address:
-
-      {[ let src = let ipaddr = Tags.v Ipaddr.pp_hum in let tags = Tags.[
-      string "host"; ipaddr "IP" ; int "PID" ; ] in let data () = Data.v [
-      float "%CPU" (...); int "MEM" (...); ] in Src.v "top" ~tags ~data
-      ~doc:"Information about processess" ]} *)
-
-  (** {3 Listing Sources} *)
-
-  type t = Src : ('a, 'b) src -> t  (** The type for metric sources. *)
-
-  val list : unit -> t list
-  (** [list ()] is the current exisiting source list. *)
-
-  val name : t -> string
-  (** [name src] is [src]'s name. *)
-
-  val doc : t -> string
-  (** [doc src] is [src]'s documentation string. *)
-
-  val tags : t -> string list
-  (** [tags src] is the list of [src]'s tag names. *)
-
-  val data : t -> string list
-  (** [fields src] is the list of [src]'s data field names. Note that these are
-      updated dynamically, so a monitoring function has to be called first. *)
-
-  val equal : t -> t -> bool
-  (** [equal src src'] is [true] iff [src] and [src'] are the same source. *)
-
-  val compare : t -> t -> int
-  (** [compare src src'] is a total order on sources. *)
-
-  val duration : t -> bool
-  (** [duration t] is true iff [t] is a {!fn} source and [t] requires automatic
-      duration recording. *)
-
-  val status : t -> bool
-  (** [status t] is true iff [t] is a {!fn} source and [t] requires automatic
-      duration recording. *)
-
-  val pp : t Fmt.t
-  (** [pp ppf src] prints an unspecified representation of [src] on [ppf]. *)
-
-  val is_active : t -> bool
-  (** [is_active t] is true iff [t] is enabled. *)
-
-  val enable : t -> unit
-  (** [enable src] enables the metric source [src]. *)
-
-  val disable : t -> unit
-  (** [disable src] disables the metric source [src]. *)
-end
-
-(** {2:graphs Metric Graphs} *)
-
-module Graph : sig
-  (** The type for graphs. *)
-  type t = graph
-
-  val title : t -> string option
-  (** [title t] is [t]'s title. *)
-
-  val ylabel : t -> string option
-  (** [title t] is [t]'s Y label. *)
-
-  val yunit : t -> string option
-  (** [unit t] is [t]'s Y unit. *)
-
-  val id : t -> int
-  (** [id t] is [t]'s unit. *)
-
-  val v : ?title:string -> ?ylabel:string -> ?yunit:string -> unit -> t
-  (** [v ()] is a new graph. *)
-
-  val list : unit -> t list
-  (** [list ()] is the list of graphs. *)
-
-  val fields : t -> (Src.t * field) list
-  (** [fields t] is the list of [t]'s fields. Field names are unique for a
-      given source. *)
-
-  val add_field : t -> Src.t -> field -> unit
-  (** [add_field t src f] adds the field [f], generated by the source [src], to
-      the graph [t]. *)
-
-  val remove_field : t -> Src.t -> string -> unit
-  (** [remove_field t src f] removes the field named [f], generated from the
-      source [src], out of the graph [t]. *)
-
-  val enable : t -> unit
-  val disable : t -> unit
-  val is_active : t -> bool
-end
-
-module Key : sig
-  val duration : string
-  val status : string
-  val minor_words : string
-  val promoted_words : string
-  val major_words : string
-  val minor_collections : string
-  val major_collections : string
-  val heap_words : string
-  val heap_chunks : string
-  val compactions : string
-  val live_words : string
-  val live_blocks : string
-  val free_words : string
-  val free_blocks : string
-  val largest_free : string
-  val fragments : string
-  val top_heap_words : string
-  val stack_size : string
-end
+type ('a, 'b) src = ('a, 'b) Src.src
 
 (** {2:func Monitoring} *)
 

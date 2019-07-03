@@ -30,7 +30,7 @@ let set_mem_reporter () =
     let data_fields = Metrics.Data.fields data in
     let name = Metrics.Src.name src in
     let field f =
-      Fmt.to_to_string Metrics.pp_key f, Fmt.to_to_string Metrics.pp_value f
+      Fmt.to_to_string Metrics.Field.pp_key f, Fmt.to_to_string Metrics.Field.pp_value f
     in
     let fields = List.map field in
     let timestamp =
@@ -52,7 +52,7 @@ let src =
   let open Metrics in
   let tags = Tags.[int "foo"; string "bar"] in
   let data i =
-    Data.v [string "toto" ("XXX" ^ string_of_int i); int "titi" i]
+    Data.v Field.[string "toto" ("XXX" ^ string_of_int i); int "titi" i]
   in
   Src.v "test" ~tags ~data
 

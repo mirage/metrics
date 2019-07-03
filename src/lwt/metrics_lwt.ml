@@ -44,9 +44,9 @@ let run src tags g =
     Lwt.catch (fun () -> g () >|= fun x -> Ok x) (fun e -> Lwt.return (Error e))
     >>= fun r ->
     let duration =
-      mk (Src.duration (Src src)) duration (Int64.sub (now ()) d0)
+      mk (Src.duration (Src src)) Field.duration (Int64.sub (now ()) d0)
     in
-    let status x = mk (Src.status (Src src)) status x in
+    let status x = mk (Src.status (Src src)) Field.status x in
     match r with
     | Ok x ->
       add_no_check_lwt src tags ?duration
@@ -68,9 +68,9 @@ let rrun src tags g =
       (fun e -> Lwt.return (Error (`Exn e)))
     >>= fun r ->
     let duration =
-      mk (Src.duration (Src src)) duration (Int64.sub (now ()) d0)
+      mk (Src.duration (Src src)) Field.duration (Int64.sub (now ()) d0)
     in
-    let status x = mk (Src.status (Src src)) status x in
+    let status x = mk (Src.status (Src src)) Field.status x in
     match r with
     | Ok (Ok _ as x) ->
       add_no_check_lwt src tags ?duration

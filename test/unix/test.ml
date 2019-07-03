@@ -23,7 +23,7 @@ let src =
   let tags = Tags.[int "pid"; string "hostname"] in
   let data i =
     Data.v
-      [float "CPU" ~unit:"%" (float_of_int i ** 2.); int "MEM" ~unit:"KiB" i]
+      Field.[float "CPU" ~unit:"%" (float_of_int i ** 2.); int "MEM" ~unit:"KiB" i]
   in
   Src.v "test" ~tags ~data
 
@@ -42,7 +42,7 @@ let src =
   let tags = Tags.[string "truc"] in
   let graph = Graph.v ~title:"Nice graph!" ~yunit:"yay" ~ylabel:"toto" () in
   let data i =
-    Data.v [float "CPU" ~graph (float_of_int i ** 2.); int "MEM" ~graph i]
+    Data.v Field.[float "CPU" ~graph (float_of_int i ** 2.); int "MEM" ~graph i]
   in
   Src.v "test" ~tags ~data
 
@@ -62,8 +62,8 @@ let timer =
   let graph = Graph.v ~title:"Timers!!" () in
   let data = function
     | Ok t ->
-      Data.v [int ~graph "timer" (int_of_float @@ (t *. 1_000_000_000.))]
-    | Error _ -> Data.v [float ~graph "timer" 0.]
+      Data.v Field.[int ~graph "timer" (int_of_float @@ (t *. 1_000_000_000.))]
+    | Error _ -> Data.v Field.[float ~graph "timer" 0.]
   in
   Src.v "sleep" ~tags ~data ~duration:true ~status:false
 

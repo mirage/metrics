@@ -55,7 +55,7 @@ let ( / ) = Filename.concat
 type file =
   { name : string
   ; ppf : Format.formatter
-  ; data_fields : field list
+  ; data_fields : Field.t list
   ; close : unit -> unit }
 
 let escape s =
@@ -73,9 +73,9 @@ let escape s =
   Buffer.contents b
 
 let filename (src, tags) =
-  let pp_tags = Fmt.(list ~sep:(unit "-") pp_value) in
+  let pp_tags = Fmt.(list ~sep:(unit "-") Field.pp_value) in
   let name = Src.name src in
-  let file = Fmt.strf "%a" pp_tags (string "" name :: tags) in
+  let file = Fmt.strf "%a" pp_tags (Field.string "" name :: tags) in
   escape file ^ ".data"
 
 module Raw = struct
@@ -111,11 +111,12 @@ let empty ?(dir = default_dir) () =
 let register_lonely_fields t src data_fields =
   List.iter
     (fun f ->
-      let k = key f in
-      if graphs f = None && k <> Key.duration && k <> Key.status then
+      let k = Field.key f in
+      if Field.graphs f = None && k <> Key.duration && k <> Key.status then
         match Lonely.Tbl.find t.lly (src, k) with
         | _ -> ()
         | exception Not_found ->
+          let open Field in
           let g = Graph.v ~title:(key f) ~ylabel:(key f) ?yunit:(unit f) () in
           Lonely.Tbl.add t.lly (src, k) g;
           Graph.add_field g src f )
@@ -138,7 +139,7 @@ let write t src ~data_fields ~tags fmt =
 
 let pp_tags =
   let e pp ppf x = Fmt.string ppf (escape (Fmt.to_to_string pp x)) in
-  let pp_tag ppf t = Fmt.pf ppf "%a=%a" (e pp_key) t (e pp_value) t in
+  let pp_tag ppf t = Fmt.pf ppf "%a=%a" (e Field.pp_key) t (e Field.pp_value) t in
   Fmt.(list ~sep:(unit ", ") pp_tag)
 
 let read_file file =
@@ -169,17 +170,17 @@ let plots_of_field t xlabel acc (src, field) =
     (fun (src_r, tags) file acc ->
       if Src.equal src src_r then
         let fields = Src.data src in
-        let i = index ~fields field + 2 in
+        let i = Field.index ~fields field + 2 in
         let label =
           match tags with
-          | [] -> key field
-          | _ -> Fmt.strf "%a (%s)" pp_tags tags (key field)
+          | [] -> Field.key field
+          | _ -> Fmt.strf "%a (%s)" pp_tags tags (Field.key field)
         in
         match xlabel with
         | `Timestamp -> (file.name, 1, i, label) :: acc
         | `Duration -> (
           let duration =
-            try Some (index_key ~fields Key.duration + 2) with Not_found ->
+            try Some (Field.index_key ~fields Key.duration + 2) with Not_found ->
               None
           in
           match duration with
@@ -193,7 +194,7 @@ let plot_graph t xlabel g =
   let ylabel =
     match Metrics.Graph.ylabel g with
     | Some t -> t
-    | None -> ( match fields with [] -> "" | h :: _ -> key (snd h) )
+    | None -> ( match fields with [] -> "" | h :: _ -> Field.key (snd h) )
   in
   let yunit =
     match Metrics.Graph.yunit g with
@@ -202,7 +203,7 @@ let plot_graph t xlabel g =
       match fields with
       | [] -> ""
       | h :: _ -> (
-        match unit (snd h) with None -> "" | Some u -> Fmt.strf " (%s)" u ) )
+        match Field.unit (snd h) with None -> "" | Some u -> Fmt.strf " (%s)" u ) )
   in
   let title =
     match Metrics.Graph.title g with Some t -> t | None -> ylabel
@@ -254,7 +255,7 @@ let set_reporter ?dir () =
   let report ~tags ~data ~over src k =
     let data_fields = Data.fields data in
     (* TODO: quote values *)
-    let pp = Fmt.(list ~sep:(unit ", ") pp_value) in
+    let pp = Fmt.(list ~sep:(unit ", ") Field.pp_value) in
     let timestamp =
       match Data.timestamp data with
       | Some ts -> ts
