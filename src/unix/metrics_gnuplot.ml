@@ -14,11 +14,13 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-(* The structure is as follows: - Every tagged source has its own file:
-   "<src-name>-<tag1>-...<tagn>.data" - A data-point is a newline in that file.
+(* The structure is as follows:
+   - Every tagged source has its own file:
+    "<src_name>-<tag1>-...<tagn>.data"
+   - A data-point is a newline in that file.
    - There's a toplevel gnuplot script per graph, which plots all the source
-   beloging to that same graph together. - There's a toplevel global script
-   which plots all the graphs. *)
+   belonging to that same graph together.
+   - There's a toplevel global script which plots all the graphs. *)
 
 (* Unix++ *)
 
@@ -65,7 +67,7 @@ let escape s =
     (function
       | '\n' | '\t' | '\r' | ':' | '(' | ')' -> ()
       | ('a' .. 'z' | '0' .. '9' | 'A' .. 'Z' | '.') as x ->
-        if !e then Buffer.add_char b '-';
+        if !e then Buffer.add_char b '_';
         e := false;
         Buffer.add_char b x
       | _ -> e := true)
