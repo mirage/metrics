@@ -21,7 +21,6 @@ module Src = Src
 module Graph = Graph
 module Key = Key
 
-type data = Data.t
 type tags = Field.t list
 type ('a, 'b) src = ('a, 'b) Src.src
 
@@ -59,14 +58,14 @@ let reporter () = !_reporter
 let () = at_exit (fun () -> !_reporter.at_exit ())
 let now () = !_reporter.now ()
 
-let report (src: ('a, 'b) Src.src) ~over ~k (tags: 'a -> tags) (f: 'b -> (data -> 'c) -> 'd): 'd =
+let report (src: ('a, 'b) Src.src) ~over ~k (tags: 'a -> tags) (f: 'b -> (Data.t -> 'c) -> 'd): 'd =
   let tags = tags (Src.tag src) in
   f src.Src.data (fun data -> !_reporter.report ~tags ~data ~over (Src src) k)
 
 let over () = ()
 let kunit _ = ()
 
-let add_no_check (src: ('a, 'b) Src.src) ?duration ?status (tags: 'a -> tags) (f: 'b -> data): unit =
+let add_no_check (src: ('a, 'b) Src.src) ?duration ?status (tags: 'a -> tags) (f: 'b -> Data.t): unit =
   report src ~over ~k:kunit tags (fun data k ->
       let data = f data in
       let data =
@@ -79,12 +78,12 @@ let add_no_check (src: ('a, 'b) Src.src) ?duration ?status (tags: 'a -> tags) (f
 
 let is_active src = Src.is_active (Src src)
 
-let add (src: ('a, 'b) Src.src) (tags: 'a -> tags) (data: 'b -> data) =
+let add (src: ('a, 'b) Src.src) (tags: 'a -> tags) (data: 'b -> Data.t) =
   if is_active src then add_no_check src tags data
 
 let mk t f v = if t then Some (f v) else None
 
-let run (src: ('a, ('b, exn) result -> data) Src.src) (tags: 'a -> tags) (g: unit -> 'b): 'b =
+let run (src: ('a, ('b, exn) result -> Data.t) Src.src) (tags: 'a -> tags) (g: unit -> 'b): 'b =
   if not (is_active src) then g ()
   else
     let d0 = now () in

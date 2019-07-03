@@ -82,9 +82,6 @@ module Data : sig
       fields [f :: fields t]. *)
 end
 
-(** The type for data points. *)
-type data = Data.t
-
 (** {2:tags Tags} *)
 
 (** [Tags] indexes metric sources, and allow to enable/disable data collection
@@ -181,7 +178,7 @@ type reporter =
   { now : unit -> int64
   ; at_exit : unit -> unit
   ; report :
-      'a.    tags:tags -> data:data -> over:(unit -> unit) -> Src.t
+      'a.    tags:tags -> data:Data.t -> over:(unit -> unit) -> Src.t
       -> (unit -> 'a) -> 'a }
 
 val nop_reporter : reporter
@@ -205,11 +202,11 @@ val set_reporter : reporter -> unit
     {{:http://caml.inria.fr/pub/docs/manual-ocaml/libref/Gc.html#VALstat}Gc.stat}
     function. Both are provided here. *)
 
-val gc_stat : tags:'a Tags.t -> ('a, unit -> data) src
+val gc_stat : tags:'a Tags.t -> ('a, unit -> Data.t) src
 (** [gc_stat ~tags] is the source of OCaml's [Gc.stat ()] memory management
     counters. *)
 
-val gc_quick_stat : tags:'a Tags.t -> ('a, unit -> data) src
+val gc_quick_stat : tags:'a Tags.t -> ('a, unit -> Data.t) src
 (** [gc_quick_stat ~tags] is the source of OCaml's [Gc.quick_stat ()] memory
     management counters. *)
 
@@ -218,9 +215,9 @@ val report :
   -> over:(unit -> unit)
   -> k:(unit -> 'c)
   -> ('a -> tags)
-  -> ('b -> (data -> 'c) -> 'd)
+  -> ('b -> (Data.t -> 'c) -> 'd)
   -> 'd
 (**/*)
 
-val init : ('a, 'b) src -> data -> unit
+val init : ('a, 'b) src -> Data.t -> unit
 val now : unit -> int64

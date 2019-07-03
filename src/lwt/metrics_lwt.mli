@@ -26,7 +26,7 @@
 
 open Metrics
 
-val add : ('a, 'b) src -> ('a -> tags) -> ('b -> data Lwt.t) -> unit Lwt.t
+val add : ('a, 'b) src -> ('a -> tags) -> ('b -> Data.t Lwt.t) -> unit Lwt.t
 (** [add src t f] adds a new data point to [src]. *)
 
 val run :
