@@ -286,7 +286,8 @@ let set_reporter ?dir ?(output=`Image) () =
     (* Close all the raw data files *)
     Raw.Tbl.iter (fun _ f -> f.close ()) t.raw;
     match output with
-    | `Datafile -> ()
+    | `Datafile ->
+      Raw.Tbl.iter (fun _ f -> Fmt.pr "%s has been created.\n%!" f.name) t.raw
     | `Script ->
       List.iter (plot_graph t ~output_format:`Script ~xlabel:`Timestamp) graphs;
       List.iter (plot_graph t ~output_format:`Script ~xlabel:`Duration) graphs
