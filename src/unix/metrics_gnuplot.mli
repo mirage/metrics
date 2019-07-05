@@ -14,4 +14,4 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-val set_reporter : ?dir:string -> unit -> unit
+val set_reporter : ?dir:string -> ?output:[ `Image | `Script | `Datafile ] -> unit -> unit
