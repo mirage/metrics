@@ -19,7 +19,7 @@
     [Metrics] provides a basic infrastructure to monitor metrics using time
     series. {{!func}Monitoring} is performed on {{!srcs}sources}, indexed by
     {{!tags}tags}. Tags allow users to select at runtime which metric sources
-    is producing data points. Disabled data-sources have a low runtime cost
+    are producing data points. Disabled data-sources have a low runtime cost
     (only a closure allocation) which make [Metrics] suitable to instrument
     production systems.
 
@@ -27,7 +27,7 @@
     entries called {{!fields}fields}.
 
     [Metrics] is heavily inspired by {{:http://erratique.ch/software/logs}Logs}
-    as it decouples metric reporting is from metric monitoring. This is handled
+    as it decouples metric reporting from metric monitoring. This is handled
     by custom {{!reporter}reporters}.
 
     {e %%VERSION%% - {{:%%PKG_HOMEPAGE%% }homepage}} *)
@@ -209,8 +209,12 @@ module Tags : sig
       data sources have a very low cost -- only allocating a closure.
 
       For instance, to define the tags "PID", "IP" and "host", respectively of
-      type [int], [Ipaddr.t]: {[ let ipaddr = Tags.v Ipaddr.pp_hum let t =
-      Tags.[ int "PID" ; ipaddr "IP" ; string "host"; ] ]} *)
+      type [int], [Ipaddr.t]:
+      {[
+        let ipaddr = Tags.v Ipaddr.pp_hum in
+        let t = Tags.[ int "PID" ; ipaddr "IP" ; string "host"; ]
+      ]}
+  *)
 
   (** The type for tag values. *)
   type 'a v
@@ -282,15 +286,18 @@ module Src : sig
 
       For instance, to create a metric to collect CPU and memory usage on
       various machines, indexed by [PID], [host] name and [IP] address:
-
-      {[ let src = let ipaddr = Tags.v Ipaddr.pp_hum in let tags = Tags.[
-      string "host"; ipaddr "IP" ; int "PID" ; ] in let data () = Data.v [
-      float "%CPU" (...); int "MEM" (...); ] in Src.v "top" ~tags ~data
-      ~doc:"Information about processess" ]} *)
+      {[
+        let src =
+           let ipaddr = Tags.v Ipaddr.pp_hum in
+           let tags = Tags.[string "host"; ipaddr "IP" ; int "PID" ; ] in
+           let data () = Data.v [float "%CPU" (...); int "MEM" (...); ] in
+           Src.v "top" ~tags ~data ~doc:"Information about processess"
+      ]}
+  *)
 
   (** {3 Listing Sources} *)
 
-  type t = Src : ('a, 'b) src -> t  (** The type for metric sources. *)
+  type t = Src : ('a, 'b) src -> t (** The type for metric sources. *)
 
   val list : unit -> t list
   (** [list ()] is the current exisiting source list. *)
