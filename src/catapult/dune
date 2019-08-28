@@ -1,0 +1,5 @@
+(library
+ (name        metrics_catapult)
+ (public_name metrics-catapult)
+ (preprocess (pps ppx_deriving_yojson))
+ (libraries   catapult metrics ppx_deriving_yojson.runtime mtime mtime.clock mtime.clock.os unix))

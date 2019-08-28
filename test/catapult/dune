@@ -1,0 +1,5 @@
+(test
+  (name      test)
+  (package   metrics-catapult)
+  (preprocess (pps ppx_yojson))
+  (libraries metrics-catapult alcotest mtime))

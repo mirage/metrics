@@ -1,0 +1,22 @@
+opam-version: "2.0"
+maintainer:   "me@craigfe.io"
+authors:      ["Craig Ferguson"]
+license:      "ISC"
+homepage:     "https://github.com/mirage/metrics"
+bug-reports:  "https://github.com/mirage/metrics/issues"
+dev-repo:     "git+https://github.com/mirage/metrics.git"
+doc:          "https://mirage.github.io/metrics/"
+
+build: [
+  ["dune" "subst"] {pinned}
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name] {with-test}
+]
+
+depends: [
+  "dune" {build}
+  "metrics"
+  "catapult"
+  "ppx_yojson"
+]
+synopsis: "Catapult backend for the Metrics library"
