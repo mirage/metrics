@@ -148,7 +148,7 @@ module Src = struct
   let doc (Src s) = s.doc
   let tags (Src s) = Keys.elements s.dom
   let equal (Src src0) (Src src1) = src0.uid = src1.uid
-  let compare (Src src0) (Src src1) = Pervasives.compare src0.uid src1.uid
+  let compare (Src src0) (Src src1) = compare src0.uid src1.uid
   let duration (Src s) = s.duration
   let status (Src s) = s.status
   let data (Src s) = match s.data_fields with None -> [] | Some l -> l
