@@ -1,0 +1,4 @@
+(library
+  (name        metrics_influx)
+  (public_name metrics-influx)
+  (libraries   metrics astring fmt lwt duration))
