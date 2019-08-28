@@ -9,5 +9,9 @@ env:
   - DISTRO="debian-stable"
   matrix:
   - PACKAGE="metrics" OCAML_VERSION="4.04"
+  - PACKAGE="metrics" OCAML_VERSION="4.05"
+  - PACKAGE="metrics" OCAML_VERSION="4.06"
+  - PACKAGE="metrics" OCAML_VERSION="4.07"
+  - PACKAGE="metrics" OCAML_VERSION="4.08"
   - PACKAGE="metrics-lwt" OCAML_VERSION="4.05"
   - PACKAGE="metrics-unix" OCAML_VERSION="4.06"
