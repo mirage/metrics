@@ -173,9 +173,9 @@ let lwt_reporter ?tags:(more_tags = []) ?interval send now =
     match SM.find_opt src !m with
     | None -> send ()
     | Some last ->
-        if now () > Int64.add last i then send ()
-        else (
-          over ();
-          k () )
+      if now () > Int64.add last i then send ()
+      else (
+        over ();
+        k () )
   in
   { Metrics.report; now; at_exit = (fun () -> ()) }

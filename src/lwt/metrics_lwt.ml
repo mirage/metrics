@@ -51,15 +51,15 @@ let run src tags g =
     let status x = mk (Src.status (Src src)) status x in
     match r with
     | Ok x ->
-        add_no_check_lwt src tags ?duration
-          ?status:(status `Ok)
-          (fun f -> Lwt.return (f r))
-        >|= fun () -> x
+      add_no_check_lwt src tags ?duration
+        ?status:(status `Ok)
+        (fun f -> Lwt.return (f r))
+      >|= fun () -> x
     | Error e ->
-        add_no_check_lwt src tags ?duration
-          ?status:(status `Error)
-          (fun f -> Lwt.return (f r))
-        >|= fun () -> raise e
+      add_no_check_lwt src tags ?duration
+        ?status:(status `Error)
+        (fun f -> Lwt.return (f r))
+      >|= fun () -> raise e
 
 let rrun src tags g =
   if not (is_active src) then g ()
@@ -75,17 +75,17 @@ let rrun src tags g =
     let status x = mk (Src.status (Src src)) status x in
     match r with
     | Ok (Ok _ as x) ->
-        add_no_check_lwt src tags ?duration
-          ?status:(status `Ok)
-          (fun f -> Lwt.return (f x))
-        >|= fun () -> x
+      add_no_check_lwt src tags ?duration
+        ?status:(status `Ok)
+        (fun f -> Lwt.return (f x))
+      >|= fun () -> x
     | Ok (Error e as x) ->
-        add_no_check_lwt src tags ?duration
-          ?status:(status `Error)
-          (fun f -> Lwt.return (f (Error (`Error e))))
-        >|= fun () -> x
+      add_no_check_lwt src tags ?duration
+        ?status:(status `Error)
+        (fun f -> Lwt.return (f (Error (`Error e))))
+      >|= fun () -> x
     | Error (`Exn e as x) ->
-        add_no_check_lwt src tags ?duration
-          ?status:(status `Error)
-          (fun f -> Lwt.return (f (Error x)))
-        >|= fun () -> raise e
+      add_no_check_lwt src tags ?duration
+        ?status:(status `Error)
+        (fun f -> Lwt.return (f (Error x)))
+      >|= fun () -> raise e

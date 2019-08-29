@@ -34,43 +34,43 @@ struct
     let connect () =
       TCP.create_connection tcp (dst, port) >|= function
       | Ok flow ->
-          f := Some flow;
-          Ok ()
+        f := Some flow;
+        Ok ()
       | Error e ->
-          Log.err (fun m ->
-              m "error %a while creating connection to influx" TCP.pp_error e);
-          Error ()
+        Log.err (fun m ->
+            m "error %a while creating connection to influx" TCP.pp_error e);
+        Error ()
     in
     let reconnect k msg =
       Lwt_mutex.lock m >>= fun () ->
       (match !f with None -> connect () | Some _ -> Lwt.return (Ok ()))
       >>= function
       | Ok () ->
-          Lwt_mutex.unlock m;
-          k msg
+        Lwt_mutex.unlock m;
+        k msg
       | Error () ->
-          Lwt_mutex.unlock m;
-          Lwt.return_unit
+        Lwt_mutex.unlock m;
+        Lwt.return_unit
     in
     let rec send msg =
       match !f with
       | None -> reconnect send msg
       | Some flow -> (
-          TCP.write flow (Cstruct.of_string msg) >>= function
-          | Ok () -> Lwt.return_unit
-          | Error e ->
-              f := None;
-              Log.err (fun m ->
-                  m "error %a while writing to influx reporter, reconnecting"
-                    TCP.pp_write_error e);
-              reconnect send msg )
+        TCP.write flow (Cstruct.of_string msg) >>= function
+        | Ok () -> Lwt.return_unit
+        | Error e ->
+          f := None;
+          Log.err (fun m ->
+              m "error %a while writing to influx reporter, reconnecting"
+                TCP.pp_write_error e);
+          reconnect send msg )
     in
     connect () >|= function
     | Ok () ->
-        let now () = CLOCK.elapsed_ns clock
-        and tags =
-          match hostname with None -> [] | Some host -> [ vmname host ]
-        in
-        Ok (Metrics_influx.lwt_reporter ~tags ?interval send now)
+      let now () = CLOCK.elapsed_ns clock
+      and tags =
+        match hostname with None -> [] | Some host -> [ vmname host ]
+      in
+      Ok (Metrics_influx.lwt_reporter ~tags ?interval send now)
     | Error () -> Error ()
 end

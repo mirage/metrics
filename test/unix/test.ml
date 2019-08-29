@@ -66,7 +66,7 @@ let timer =
   let graph = Graph.v ~title:"Timers!!" () in
   let data = function
     | Ok t ->
-        Data.v [ int ~graph "timer" (int_of_float @@ (t *. 1_000_000_000.)) ]
+      Data.v [ int ~graph "timer" (int_of_float @@ (t *. 1_000_000_000.)) ]
     | Error _ -> Data.v [ float ~graph "timer" 0. ]
   in
   Src.v "sleep" ~tags ~data ~duration:true ~status:false
@@ -76,12 +76,12 @@ let run3 () =
   let rec aux = function
     | 0 -> Lwt.return ()
     | i ->
-        Metrics_lwt.run timer
-          (fun x -> x)
-          (fun () ->
-            let t = Random.float 1. in
-            Lwt_unix.sleep t >|= fun _ -> t)
-        >>= fun _ -> aux (i - 1)
+      Metrics_lwt.run timer
+        (fun x -> x)
+        (fun () ->
+          let t = Random.float 1. in
+          Lwt_unix.sleep t >|= fun _ -> t)
+      >>= fun _ -> aux (i - 1)
   in
   aux 10
 

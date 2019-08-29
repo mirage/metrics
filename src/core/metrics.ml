@@ -271,14 +271,14 @@ let init t data =
   match t.Src.data_fields with
   | Some _ -> ()
   | None ->
-      let df = List.map key data.Data.fields in
-      t.data_fields <- Some df;
-      List.iter
-        (fun (F f) ->
-          match f.graphs with
-          | None -> ()
-          | Some gs -> List.iter (fun g -> Graph.add_field g (Src t) (F f)) gs)
-        data.Data.fields
+    let df = List.map key data.Data.fields in
+    t.data_fields <- Some df;
+    List.iter
+      (fun (F f) ->
+        match f.graphs with
+        | None -> ()
+        | Some gs -> List.iter (fun g -> Graph.add_field g (Src t) (F f)) gs)
+      data.Data.fields
 
 type 'a field_f =
   ?doc:string ->
@@ -394,9 +394,9 @@ let tag : type a b. (a, b) Src.src -> a =
    fun tags -> function
     | Tags.[] -> List.rev tags
     | Tags.(h :: t) ->
-        fun a ->
-          let tags = field h.k (Other h.pp) a :: tags in
-          aux tags t
+      fun a ->
+        let tags = field h.k (Other h.pp) a :: tags in
+        aux tags t
   in
   aux [] src.Src.tags
 
@@ -465,11 +465,11 @@ let run src tags g =
     let status x = mk src.status status x in
     match r with
     | Ok x ->
-        add_no_check src tags ?duration ?status:(status `Ok) (fun f -> f r);
-        x
+      add_no_check src tags ?duration ?status:(status `Ok) (fun f -> f r);
+      x
     | Error e ->
-        add_no_check src tags ?duration ?status:(status `Error) (fun f -> f r);
-        raise e
+      add_no_check src tags ?duration ?status:(status `Error) (fun f -> f r);
+      raise e
 
 type ('a, 'b) rresult = ('a, [ `Exn of exn | `Error of 'b ]) result
 
@@ -482,18 +482,18 @@ let rrun src tags g =
     let status x = mk src.status status x in
     match r with
     | Ok (Ok _ as x) ->
-        add_no_check src tags ?duration ?status:(status `Ok) (fun f -> f x);
-        x
+      add_no_check src tags ?duration ?status:(status `Ok) (fun f -> f x);
+      x
     | Ok (Error e as x) ->
-        add_no_check src tags ?duration
-          ?status:(status `Error)
-          (fun f -> f (Error (`Error e)));
-        x
+      add_no_check src tags ?duration
+        ?status:(status `Error)
+        (fun f -> f (Error (`Error e)));
+      x
     | Error (`Exn e as x) ->
-        add_no_check src tags ?duration
-          ?status:(status `Error)
-          (fun f -> f (Error x));
-        raise e
+      add_no_check src tags ?duration
+        ?status:(status `Error)
+        (fun f -> f (Error x));
+      raise e
 
 let enable_tag t =
   Src._tags.tags <- Keys.add t Src._tags.tags;

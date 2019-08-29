@@ -43,9 +43,9 @@ let mkdir path =
   let rec aux parent = function
     | [] -> ()
     | h :: t ->
-        let path = Filename.concat parent h in
-        safe_mkdir path;
-        aux path t
+      let path = Filename.concat parent h in
+      safe_mkdir path;
+      aux path t
   in
   match split_dirs path with "" :: xs -> aux "/" xs | xs -> aux "." xs
 
@@ -69,9 +69,9 @@ let escape s =
     (function
       | '\n' | '\t' | '\r' | ':' | '(' | ')' -> ()
       | ('a' .. 'z' | '0' .. '9' | 'A' .. 'Z' | '.') as x ->
-          if !e then Buffer.add_char b '_';
-          e := false;
-          Buffer.add_char b x
+        if !e then Buffer.add_char b '_';
+        e := false;
+        Buffer.add_char b x
       | _ -> e := true)
     s;
   Buffer.contents b
@@ -123,11 +123,9 @@ let register_lonely_fields t src data_fields =
         match Lonely.Tbl.find t.lly (src, k) with
         | _ -> ()
         | exception Not_found ->
-            let g =
-              Graph.v ~title:(key f) ~ylabel:(key f) ?yunit:(unit f) ()
-            in
-            Lonely.Tbl.add t.lly (src, k) g;
-            Graph.add_field g src f)
+          let g = Graph.v ~title:(key f) ~ylabel:(key f) ?yunit:(unit f) () in
+          Lonely.Tbl.add t.lly (src, k) g;
+          Graph.add_field g src f)
     data_fields
 
 let file t src ~data_fields ~tags =
@@ -191,13 +189,13 @@ let plots_of_field t xlabel acc (src, field) =
         match xlabel with
         | `Timestamp -> (file.name, 1, i, label) :: acc
         | `Duration -> (
-            let duration =
-              try Some (index_key ~fields Key.duration + 2)
-              with Not_found -> None
-            in
-            match duration with
-            | None -> acc
-            | Some d -> (file.name, d, i, label) :: acc )
+          let duration =
+            try Some (index_key ~fields Key.duration + 2)
+            with Not_found -> None
+          in
+          match duration with
+          | None -> acc
+          | Some d -> (file.name, d, i, label) :: acc )
       else acc)
     t.raw acc
 
@@ -214,8 +212,8 @@ let scatter_plot oc ~plots ~title ~xlabel ~ylabel ~yunit ~output =
   match plots with
   | [] -> ()
   | _ ->
-      Fmt.pf ppf
-        {|
+    Fmt.pf ppf
+      {|
 set title '%s'
 set xlabel '%s'
 set ylabel "%s%s"
@@ -225,9 +223,9 @@ set term png
 set output '%s'
 plot %a
 |}
-        title xlabel ylabel yunit output
-        Fmt.(list ~sep:(unit ", ") pp_plots)
-        plots
+      title xlabel ylabel yunit output
+      Fmt.(list ~sep:(unit ", ") pp_plots)
+      plots
 
 let render_graph ~dir ~out ~script_file =
   let out_dir = dir / out in
@@ -246,11 +244,10 @@ let plot_graph ~output_format ~xlabel t g =
     match Metrics.Graph.yunit g with
     | Some u -> Fmt.strf " (%s)" u
     | None -> (
-        match fields with
-        | [] -> ""
-        | h :: _ -> (
-            match unit (snd h) with None -> "" | Some u -> Fmt.strf " (%s)" u )
-        )
+      match fields with
+      | [] -> ""
+      | h :: _ -> (
+        match unit (snd h) with None -> "" | Some u -> Fmt.strf " (%s)" u ) )
   in
   let title =
     match Metrics.Graph.title g with Some t -> t | None -> ylabel
@@ -267,9 +264,9 @@ let plot_graph ~output_format ~xlabel t g =
   match output_format with
   | `Script -> Fmt.pr "%s has been created.\n%!" file
   | `Image -> (
-      render_graph ~dir:t.dir ~out:"out" ~script_file:file |> function
-      | Ok _ -> Fmt.pr "%s has been created.\n%!" (t.dir / output)
-      | Error e -> Fmt.failwith "Cannot generate %s: %s" output e )
+    render_graph ~dir:t.dir ~out:"out" ~script_file:file |> function
+    | Ok _ -> Fmt.pr "%s has been created.\n%!" (t.dir / output)
+    | Error e -> Fmt.failwith "Cannot generate %s: %s" output e )
 
 let set_reporter ?dir ?(output = `Image) () =
   let t = empty ?dir () in
@@ -299,20 +296,12 @@ let set_reporter ?dir ?(output = `Image) () =
     Raw.Tbl.iter (fun _ f -> f.close ()) t.raw;
     match output with
     | `Datafile ->
-        Raw.Tbl.iter
-          (fun _ f -> Fmt.pr "%s has been created.\n%!" f.name)
-          t.raw
+      Raw.Tbl.iter (fun _ f -> Fmt.pr "%s has been created.\n%!" f.name) t.raw
     | `Script ->
-        List.iter
-          (plot_graph t ~output_format:`Script ~xlabel:`Timestamp)
-          graphs;
-        List.iter
-          (plot_graph t ~output_format:`Script ~xlabel:`Duration)
-          graphs
+      List.iter (plot_graph t ~output_format:`Script ~xlabel:`Timestamp) graphs;
+      List.iter (plot_graph t ~output_format:`Script ~xlabel:`Duration) graphs
     | `Image ->
-        List.iter
-          (plot_graph t ~output_format:`Image ~xlabel:`Timestamp)
-          graphs;
-        List.iter (plot_graph t ~output_format:`Image ~xlabel:`Duration) graphs
+      List.iter (plot_graph t ~output_format:`Image ~xlabel:`Timestamp) graphs;
+      List.iter (plot_graph t ~output_format:`Image ~xlabel:`Duration) graphs
   in
   Metrics.set_reporter { Metrics.report; now; at_exit }
