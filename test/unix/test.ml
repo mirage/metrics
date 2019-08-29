@@ -20,15 +20,17 @@
 
 let src =
   let open Metrics in
-  let tags = Tags.[int "pid"; string "hostname"] in
+  let tags = Tags.[ int "pid"; string "hostname" ] in
   let data i =
     Data.v
-      [float "CPU" ~unit:"%" (float_of_int i ** 2.); int "MEM" ~unit:"KiB" i]
+      [ float "CPU" ~unit:"%" (float_of_int i ** 2.); int "MEM" ~unit:"KiB" i ]
   in
   Src.v "test" ~tags ~data
 
 let i0 t = t 42 "foo.local"
+
 let i1 t = t 12 "toto.com"
+
 let f tags i = Metrics.add src tags (fun m -> m i)
 
 let run () =
@@ -39,15 +41,17 @@ let run () =
 
 let src =
   let open Metrics in
-  let tags = Tags.[string "truc"] in
+  let tags = Tags.[ string "truc" ] in
   let graph = Graph.v ~title:"Nice graph!" ~yunit:"yay" ~ylabel:"toto" () in
   let data i =
-    Data.v [float "CPU" ~graph (float_of_int i ** 2.); int "MEM" ~graph i]
+    Data.v [ float "CPU" ~graph (float_of_int i ** 2.); int "MEM" ~graph i ]
   in
   Src.v "test" ~tags ~data
 
 let i0 t = t "foo"
+
 let i1 t = t "bar"
+
 let f tags i = Metrics.add src tags (fun m -> m i)
 
 let run2 () =
@@ -62,8 +66,8 @@ let timer =
   let graph = Graph.v ~title:"Timers!!" () in
   let data = function
     | Ok t ->
-      Data.v [int ~graph "timer" (int_of_float @@ (t *. 1_000_000_000.))]
-    | Error _ -> Data.v [float ~graph "timer" 0.]
+      Data.v [ int ~graph "timer" (int_of_float @@ (t *. 1_000_000_000.)) ]
+    | Error _ -> Data.v [ float ~graph "timer" 0. ]
   in
   Src.v "sleep" ~tags ~data ~duration:true ~status:false
 
@@ -76,7 +80,7 @@ let run3 () =
         (fun x -> x)
         (fun () ->
           let t = Random.float 1. in
-          Lwt_unix.sleep t >|= fun _ -> t )
+          Lwt_unix.sleep t >|= fun _ -> t)
       >>= fun _ -> aux (i - 1)
   in
   aux 10

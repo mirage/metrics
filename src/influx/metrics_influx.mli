@@ -14,8 +14,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-val lwt_reporter : ?tags:Metrics.tags -> ?interval:int ->
-  (string -> unit Lwt.t) -> (unit -> int64) -> Metrics.reporter
+val lwt_reporter :
+  ?tags:Metrics.tags ->
+  ?interval:int ->
+  (string -> unit Lwt.t) ->
+  (unit -> int64) ->
+  Metrics.reporter
 (** [lwt_reporter ~tags ~interval send clock] is a metrics reporter that encodes
    a measurement in
    {{:https://docs.influxdata.com/influxdb/v1.5/write_protocols/line_protocol_reference/}influxdb

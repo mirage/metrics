@@ -34,24 +34,24 @@
 
 (** {2:fields Fields} *)
 
-(** The type for metric {{!graphs}graphs}. *)
 type graph
+(** The type for metric {{!graphs}graphs}. *)
 
-(** The type for metric fields. *)
 type field
+(** The type for metric fields. *)
 
-(** The type for field keys. *)
 type key = string
+(** The type for field keys. *)
 
-(** The type for field functions. *)
 type 'a field_f =
-     ?doc:string
-  -> ?unit:string
-  -> ?graph:graph
-  -> ?graphs:graph list
-  -> key
-  -> 'a
-  -> field
+  ?doc:string ->
+  ?unit:string ->
+  ?graph:graph ->
+  ?graphs:graph list ->
+  key ->
+  'a ->
+  field
+(** The type for field functions. *)
 
 val string : string field_f
 (** [string ?doc k v] is the field whose key is [k] and value is [v]. *)
@@ -83,8 +83,8 @@ val bool : bool field_f
 val duration : int64 -> field
 (** [duration t] is the field [("duration", t, "ns")]. *)
 
+type status = [ `Ok | `Error ]
 (** The type for process status. *)
-type status = [`Ok | `Error]
 
 val status : status -> field
 (** [status t] is the field [("status", "ok")] or [("status", "error")]. *)
@@ -105,14 +105,14 @@ type 'a ty =
   | Other : 'a Fmt.t -> 'a ty
 
 val field :
-     ?doc:string
-  -> ?unit:string
-  -> ?graph:graph
-  -> ?graphs:graph list
-  -> string
-  -> 'a ty
-  -> 'a
-  -> field
+  ?doc:string ->
+  ?unit:string ->
+  ?graph:graph ->
+  ?graphs:graph list ->
+  string ->
+  'a ty ->
+  'a ->
+  field
 (** [field ?doc ?unit k ty v] is the field whose key is [k], value type is [ty]
     and value is [v]. *)
 
@@ -165,12 +165,12 @@ module Data : sig
 
       {[ let x = Data.v [ float "%CPU" 0.42; int "MEM" 27_000; ] ]} *)
 
-  (** The type for data points. *)
   type t
+  (** The type for data points. *)
 
+  type timestamp = string
   (** The type for timestamp. A timestamp shows the date and time, in RFC3339
       UTC, associated with particular data. *)
-  type timestamp = string
 
   val timestamp : t -> timestamp option
   (** [timestamp t] is [t]'s timestamp (if any). If it is [None], then the
@@ -193,8 +193,8 @@ module Data : sig
       fields [f :: fields t]. *)
 end
 
-(** The type for data points. *)
 type data = Data.t
+(** The type for data points. *)
 
 (** {2:tags Tags} *)
 
@@ -216,8 +216,8 @@ module Tags : sig
       ]}
   *)
 
-  (** The type for tag values. *)
   type 'a v
+  (** The type for tag values. *)
 
   (** The type tags: an heterogeneous list of names and types. *)
   type 'a t = [] : field list t | ( :: ) : 'a v * 'b t -> ('a -> 'b) t
@@ -228,19 +228,27 @@ module Tags : sig
   (** [ty pp] is a new typed tag. *)
 
   val string : string -> string v
+
   val float : string -> float v
+
   val int : string -> int v
+
   val uint : string -> int v
+
   val int32 : string -> int32 v
+
   val uint32 : string -> int32 v
+
   val int64 : string -> int64 v
+
   val uint64 : string -> int64 v
+
   val bool : string -> bool v
 end
 
+type tags = field list
 (** The type for metric tags. Used to distinguish the various entities that are
     being measured. *)
-type tags = field list
 
 val enable_tag : key -> unit
 (** [enable_tag t] enables all the registered metric sources having the tag
@@ -258,23 +266,23 @@ val disable_all : unit -> unit
 
 (** {2:srcs Sources} *)
 
+type ('a, 'b) src
 (** The type for metric sources. A source defines a named unit for a time
     series. ['a] is the type of the function used to create new {{!data}data
     points}. ['b] is the type for {!tags}. *)
-type ('a, 'b) src
 
 (** Metric sources. *)
 module Src : sig
   (** {2 Sources} *)
 
   val v :
-       ?doc:string
-    -> ?duration:bool
-    -> ?status:bool
-    -> tags:'a Tags.t
-    -> data:'b
-    -> string
-    -> ('a, 'b) src
+    ?doc:string ->
+    ?duration:bool ->
+    ?status:bool ->
+    tags:'a Tags.t ->
+    data:'b ->
+    string ->
+    ('a, 'b) src
   (** [v ?doc ~tags name] is a new source, accepting arbitrary data points.
       [name] is the name of the source; it doesn't need to be unique but it is
       good practice to prefix the name with the name of your package or library
@@ -297,7 +305,7 @@ module Src : sig
 
   (** {3 Listing Sources} *)
 
-  type t = Src : ('a, 'b) src -> t (** The type for metric sources. *)
+  type t = Src : ('a, 'b) src -> t  (** The type for metric sources. *)
 
   val list : unit -> t list
   (** [list ()] is the current exisiting source list. *)
@@ -345,8 +353,8 @@ end
 (** {2:graphs Metric Graphs} *)
 
 module Graph : sig
-  (** The type for graphs. *)
   type t = graph
+  (** The type for graphs. *)
 
   val title : t -> string option
   (** [title t] is [t]'s title. *)
@@ -379,28 +387,47 @@ module Graph : sig
       source [src], out of the graph [t]. *)
 
   val enable : t -> unit
+
   val disable : t -> unit
+
   val is_active : t -> bool
 end
 
 module Key : sig
   val duration : string
+
   val status : string
+
   val minor_words : string
+
   val promoted_words : string
+
   val major_words : string
+
   val minor_collections : string
+
   val major_collections : string
+
   val heap_words : string
+
   val heap_chunks : string
+
   val compactions : string
+
   val live_words : string
+
   val live_blocks : string
+
   val free_words : string
+
   val free_blocks : string
+
   val largest_free : string
+
   val fragments : string
+
   val top_heap_words : string
+
   val stack_size : string
 end
 
@@ -420,27 +447,28 @@ val run :
     information (e.g. how long [g ()] took, in nano-seconds) and status
     information (e.g. to check if an exception has been raised). *)
 
+type ('a, 'b) rresult = ('a, [ `Exn of exn | `Error of 'b ]) result
 (** The type for extended results. *)
-type ('a, 'b) rresult = ('a, [`Exn of exn | `Error of 'b]) result
 
 val rrun :
-     ('a, ('b, 'c) rresult -> Data.t) src
-  -> ('a -> tags)
-  -> (unit -> ('b, 'c) result)
-  -> ('b, 'c) result
+  ('a, ('b, 'c) rresult -> Data.t) src ->
+  ('a -> tags) ->
+  (unit -> ('b, 'c) result) ->
+  ('b, 'c) result
 (** Same as {!run} but also record if the result is [Ok] or [Error]. *)
 
 (** {2:reporter Reporters}
 
     TODO: explain and give an example *)
 
+type reporter = {
+  now : unit -> int64;
+  at_exit : unit -> unit;
+  report :
+    'a. tags:tags -> data:data -> over:(unit -> unit) -> Src.t ->
+    (unit -> 'a) -> 'a;
+}
 (** The type for reporters. *)
-type reporter =
-  { now : unit -> int64
-  ; at_exit : unit -> unit
-  ; report :
-      'a.    tags:tags -> data:data -> over:(unit -> unit) -> Src.t
-      -> (unit -> 'a) -> 'a }
 
 val nop_reporter : reporter
 (** [nop_reporter] is the initial reporter returned by {!reporter}, it does
@@ -472,13 +500,14 @@ val gc_quick_stat : tags:'a Tags.t -> ('a, unit -> data) src
     management counters. *)
 
 val report :
-     ('a, 'b) src
-  -> over:(unit -> unit)
-  -> k:(unit -> 'c)
-  -> ('a -> tags)
-  -> ('b -> (data -> 'c) -> 'd)
-  -> 'd
+  ('a, 'b) src ->
+  over:(unit -> unit) ->
+  k:(unit -> 'c) ->
+  ('a -> tags) ->
+  ('b -> (data -> 'c) -> 'd) ->
+  'd
 (**/*)
 
 val init : ('a, 'b) src -> data -> unit
+
 val now : unit -> int64

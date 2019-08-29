@@ -22,15 +22,15 @@ let add_no_check_lwt src ?duration ?status tags f =
   let k () = ret in
   let over () = Lwt.wakeup unblock () in
   report src ~over ~k tags (fun data k ->
-      f data
-      >>= fun data ->
+      f data >>= fun data ->
       let data =
-        match duration, status with
+        match (duration, status) with
         | None, None -> data
         | Some d, None | None, Some d -> Data.cons d data
         | Some x, Some y -> Data.cons x (Data.cons y data)
       in
-      init src data; k data )
+      init src data;
+      k data)
 
 let add src tags f =
   if is_active src then add_no_check_lwt src tags f else Lwt.return ()
@@ -41,7 +41,9 @@ let run src tags g =
   if not (is_active src) then g ()
   else
     let d0 = now () in
-    Lwt.catch (fun () -> g () >|= fun x -> Ok x) (fun e -> Lwt.return (Error e))
+    Lwt.catch
+      (fun () -> g () >|= fun x -> Ok x)
+      (fun e -> Lwt.return (Error e))
     >>= fun r ->
     let duration =
       mk (Src.duration (Src src)) duration (Int64.sub (now ()) d0)

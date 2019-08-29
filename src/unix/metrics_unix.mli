@@ -20,4 +20,5 @@ val monitor_gc : ?quick:bool -> float -> unit
     otherwise it's [Gc.stats ()]. *)
 
 val disable_gc_stat : unit -> unit
+
 val enable_gc_stat : unit -> unit
