@@ -23,28 +23,93 @@
 open Astring
 
 let avoid_keyword =
-  let keywords = String.Set.of_list [
-    "ALL" ; "ALTER" ; "ANY" ; "AS" ; "ASC" ; "BEGIN" ;
-    "BY" ; "CREATE" ; "CONTINUOUS" ; "DATABASE" ; "DATABASES" ; "DEFAULT" ;
-    "DELETE" ; "DESC" ; "DESTINATIONS" ; "DIAGNOSTICS" ; "DISTINCT" ; "DROP" ;
-    "DURATION" ; "END" ; "EVERY" ; "EXPLAIN" ; "FIELD" ; "FOR" ;
-    "FROM" ; "GRANT" ; "GRANTS" ; "GROUP" ; "GROUPS" ; "IN" ;
-    "INF" ; "INSERT" ; "INTO" ; "KEY" ; "KEYS" ; "KILL" ;
-    "LIMIT" ; "SHOW" ; "MEASUREMENT" ; "MEASUREMENTS" ; "NAME" ; "OFFSET" ;
-    "ON" ; "ORDER" ; "PASSWORD" ; "POLICY" ; "POLICIES" ; "PRIVILEGES" ;
-    "QUERIES" ; "QUERY" ; "READ" ; "REPLICATION" ; "RESAMPLE" ; "RETENTION" ;
-    "REVOKE" ; "SELECT" ; "SERIES" ; "SET" ; "SHARD" ; "SHARDS" ;
-    "SLIMIT" ; "SOFFSET" ; "STATS" ; "SUBSCRIPTION" ; "SUBSCRIPTIONS" ; "TAG" ;
-    "TO" ; "USER" ; "USERS" ; "VALUES" ; "WHERE" ; "WITH" ; "WRITE"
-  ] in
-  (fun m -> if String.(Set.mem (Ascii.uppercase m) keywords) then "o" ^ m else m)
+  let keywords =
+    String.Set.of_list
+      [
+        "ALL";
+        "ALTER";
+        "ANY";
+        "AS";
+        "ASC";
+        "BEGIN";
+        "BY";
+        "CREATE";
+        "CONTINUOUS";
+        "DATABASE";
+        "DATABASES";
+        "DEFAULT";
+        "DELETE";
+        "DESC";
+        "DESTINATIONS";
+        "DIAGNOSTICS";
+        "DISTINCT";
+        "DROP";
+        "DURATION";
+        "END";
+        "EVERY";
+        "EXPLAIN";
+        "FIELD";
+        "FOR";
+        "FROM";
+        "GRANT";
+        "GRANTS";
+        "GROUP";
+        "GROUPS";
+        "IN";
+        "INF";
+        "INSERT";
+        "INTO";
+        "KEY";
+        "KEYS";
+        "KILL";
+        "LIMIT";
+        "SHOW";
+        "MEASUREMENT";
+        "MEASUREMENTS";
+        "NAME";
+        "OFFSET";
+        "ON";
+        "ORDER";
+        "PASSWORD";
+        "POLICY";
+        "POLICIES";
+        "PRIVILEGES";
+        "QUERIES";
+        "QUERY";
+        "READ";
+        "REPLICATION";
+        "RESAMPLE";
+        "RETENTION";
+        "REVOKE";
+        "SELECT";
+        "SERIES";
+        "SET";
+        "SHARD";
+        "SHARDS";
+        "SLIMIT";
+        "SOFFSET";
+        "STATS";
+        "SUBSCRIPTION";
+        "SUBSCRIPTIONS";
+        "TAG";
+        "TO";
+        "USER";
+        "USERS";
+        "VALUES";
+        "WHERE";
+        "WITH";
+        "WRITE";
+      ]
+  in
+  fun m -> if String.(Set.mem (Ascii.uppercase m) keywords) then "o" ^ m else m
 
 let escape =
-  List.fold_right (fun e m' -> String.(concat ~sep:("\\" ^ e) (cuts ~sep:e m')))
+  List.fold_right (fun e m' ->
+      String.(concat ~sep:("\\" ^ e) (cuts ~sep:e m')))
 
-let escape_measurement m = escape  [ "," ; " " ] (avoid_keyword m)
+let escape_measurement m = escape [ ","; " " ] (avoid_keyword m)
 
-let escape_name m = escape [ "," ; " " ; "=" ] (avoid_keyword m)
+let escape_name m = escape [ ","; " "; "=" ] (avoid_keyword m)
 
 let pp_value (str : string Fmt.t) ppf f =
   let open Metrics in
@@ -68,39 +133,49 @@ let encode_line_protocol tags data name =
   let data_fields = Metrics.Data.fields data in
   let pp_field_str ppf s = Fmt.pf ppf "%S" s in
   let pp_field ppf f =
-    Fmt.(pair ~sep:(unit "=") string (pp_value pp_field_str)) ppf
+    Fmt.(pair ~sep:(unit "=") string (pp_value pp_field_str))
+      ppf
       (escape_name (Metrics.key f), f)
   in
   let pp_fields = Fmt.(list ~sep:(unit ",") pp_field) in
   let pp_tag_str ppf s = Fmt.string ppf (escape_name s) in
   let pp_tag ppf f =
-    Fmt.(pair ~sep:(unit "=") string (pp_value pp_tag_str)) ppf
+    Fmt.(pair ~sep:(unit "=") string (pp_value pp_tag_str))
+      ppf
       (escape_name (Metrics.key f), f)
   in
   let pp_tags = Fmt.(list ~sep:(unit ",") pp_tag) in
-  Fmt.strf "%s,%a %a\n" (escape_measurement name) pp_tags tags pp_fields data_fields
+  Fmt.strf "%s,%a %a\n" (escape_measurement name) pp_tags tags pp_fields
+    data_fields
 
-module SM = Map.Make(Metrics.Src)
+module SM = Map.Make (Metrics.Src)
 
-let lwt_reporter ?tags:(more_tags=[]) ?interval send now =
+let lwt_reporter ?tags:(more_tags = []) ?interval send now =
   let m = ref SM.empty in
   let i = match interval with None -> 0L | Some s -> Duration.of_ms s in
   let start = now () in
   let report ~tags ~data ~over src k =
     let send () =
-      m := SM.add src (now ()) !m ;
-      Printf.printf "sending\n" ;
-      let str = encode_line_protocol (more_tags @ tags) data (Metrics.Src.name src) in
-      let unblock () = over () ; Lwt.return_unit in
-      Lwt.finalize (fun () -> send str) unblock |> Lwt.ignore_result ; k ()
+      m := SM.add src (now ()) !m;
+      Printf.printf "sending\n";
+      let str =
+        encode_line_protocol (more_tags @ tags) data (Metrics.Src.name src)
+      in
+      let unblock () =
+        over ();
+        Lwt.return_unit
+      in
+      Lwt.finalize (fun () -> send str) unblock |> Lwt.ignore_result;
+      k ()
     in
-    Printf.printf "%s reporting at %Lu ns\n" (Metrics.Src.name src) (Int64.sub (now ()) start) ;
+    Printf.printf "%s reporting at %Lu ns\n" (Metrics.Src.name src)
+      (Int64.sub (now ()) start);
     match SM.find_opt src !m with
     | None -> send ()
     | Some last ->
-      if now () > Int64.add last i then
-        send ()
-      else
-        (over () ; k ())
+        if now () > Int64.add last i then send ()
+        else (
+          over ();
+          k () )
   in
-  { Metrics.report; now ; at_exit = (fun () -> ()) }
+  { Metrics.report; now; at_exit = (fun () -> ()) }

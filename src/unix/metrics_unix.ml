@@ -18,6 +18,7 @@ open Metrics
 open Lwt.Infix
 
 let gc_quick_stat = gc_quick_stat ~tags:Tags.[]
+
 let gc_stat = gc_stat ~tags:Tags.[]
 
 let monitor_gc ?(quick = true) delay =
