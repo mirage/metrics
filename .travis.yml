@@ -13,6 +13,7 @@ env:
   - PACKAGE="metrics" OCAML_VERSION="4.06"
   - PACKAGE="metrics" OCAML_VERSION="4.07"
   - PACKAGE="metrics" OCAML_VERSION="4.08"
+  - PACKAGE="metrics" OCAML_VERSION="4.09"
   - PACKAGE="metrics-lwt" OCAML_VERSION="4.05"
   - PACKAGE="metrics-unix" OCAML_VERSION="4.06"
   - PACKAGE="metrics-influx" OCAML_VERSION="4.06"
