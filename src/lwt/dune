@@ -1,4 +1,4 @@
 (library
   (name        metrics_lwt)
   (public_name metrics-lwt)
-  (libraries   lwt metrics))
+  (libraries   lwt metrics logs))

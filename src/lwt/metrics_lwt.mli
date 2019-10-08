@@ -44,3 +44,14 @@ val rrun :
   (unit -> ('b, 'c) result Lwt.t) ->
   ('b, 'c) result Lwt.t
 (** Same as {!run} but also record if the result is [Ok] or [Error]. *)
+
+val periodically : (field list, unit -> data) src -> unit
+(** [periodically src] registers [src] for periodic collection. *)
+
+val init_periodic : ?gc:[ `None | `Quick | `Full ] -> ?logs:bool ->
+  (unit -> unit Lwt.t) -> unit
+(** [init_periodic ~gc ~logs sleeper] starts a task which {!Lwt.join} [sleeper]
+    and all registered {!periodically} sources. [gc] is by default [`Full],
+    collecting full GC stats - other options are [`None] and [`Quick]. If [logs]
+    is provided and [true] (the default), the error and warning count from the
+    Logs library are registered to be periodically reported. *)

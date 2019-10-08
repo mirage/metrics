@@ -17,5 +17,6 @@ depends: [
   "dune"
   "metrics"
   "lwt"
+  "logs"
 ]
 synopsis: "Lwt backend for the Metrics library"
