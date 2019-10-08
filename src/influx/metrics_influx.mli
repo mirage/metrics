@@ -14,6 +14,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
+val encode_line_protocol : Metrics.tags -> Metrics.data -> string -> string
+
 val lwt_reporter :
   ?tags:Metrics.tags ->
   ?interval:int ->
