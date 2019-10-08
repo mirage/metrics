@@ -430,6 +430,16 @@ let () = at_exit (fun () -> !_reporter.at_exit ())
 
 let now () = !_reporter.now ()
 
+module SM = Map.Make(Src)
+
+let cache_reporter () =
+  let m = ref SM.empty in
+  let report ~tags ~data ~over src k =
+    m := SM.add src (tags, data) !m;
+    over (); k ()
+  in
+  (fun () -> !m), { report ; now ; at_exit = (fun () -> ()) }
+
 let report src ~over ~k tags f =
   let tags = tags (tag src) in
   f src.Src.data (fun data -> !_reporter.report ~tags ~data ~over (Src src) k)
