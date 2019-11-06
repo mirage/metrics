@@ -153,7 +153,6 @@ module SM = Map.Make (Metrics.Src)
 let lwt_reporter ?tags:(more_tags = []) ?interval send now =
   let m = ref SM.empty in
   let i = match interval with None -> 0L | Some s -> Duration.of_ms s in
-  let start = now () in
   let report ~tags ~data ~over src k =
     let send () =
       m := SM.add src (now ()) !m;

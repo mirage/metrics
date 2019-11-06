@@ -20,14 +20,14 @@ let src = Logs.Src.create "influx" ~doc:"influx metrics reporter"
 
 module Log = (val Logs.src_log src : Logs.LOG)
 
-module Influx (CLOCK : Mirage_clock.MCLOCK) (STACK : Mirage_stack_lwt.V4) =
+module Influx (CLOCK : Mirage_clock.MCLOCK) (STACK : Mirage_stack.V4) =
 struct
   module TCP = STACK.TCPV4
 
   let vmname =
     Metrics.field ~doc:"name of the virtual machine" "vm" Metrics.String
 
-  let create clock stack ?interval ?hostname dst ?(port = 8094) () =
+  let create stack ?interval ?hostname dst ?(port = 8094) () =
     let tcp = STACK.tcpv4 stack in
     let f = ref None in
     let m = Lwt_mutex.create () in
@@ -67,7 +67,7 @@ struct
     in
     connect () >|= function
     | Ok () ->
-      let now () = CLOCK.elapsed_ns clock
+      let now () = CLOCK.elapsed_ns ()
       and tags =
         match hostname with None -> [] | Some host -> [ vmname host ]
       in
