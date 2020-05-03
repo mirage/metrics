@@ -15,7 +15,8 @@ build: [
 
 depends: [
   "dune"
-  "metrics"
+  "metrics" {= version}
   "lwt"
+  "logs"
 ]
 synopsis: "Lwt backend for the Metrics library"

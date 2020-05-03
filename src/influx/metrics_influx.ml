@@ -153,11 +153,9 @@ module SM = Map.Make (Metrics.Src)
 let lwt_reporter ?tags:(more_tags = []) ?interval send now =
   let m = ref SM.empty in
   let i = match interval with None -> 0L | Some s -> Duration.of_ms s in
-  let start = now () in
   let report ~tags ~data ~over src k =
     let send () =
       m := SM.add src (now ()) !m;
-      Printf.printf "sending\n";
       let str =
         encode_line_protocol (more_tags @ tags) data (Metrics.Src.name src)
       in
@@ -168,14 +166,10 @@ let lwt_reporter ?tags:(more_tags = []) ?interval send now =
       Lwt.finalize (fun () -> send str) unblock |> Lwt.ignore_result;
       k ()
     in
-    Printf.printf "%s reporting at %Lu ns\n" (Metrics.Src.name src)
-      (Int64.sub (now ()) start);
     match SM.find_opt src !m with
     | None -> send ()
     | Some last ->
       if now () > Int64.add last i then send ()
-      else (
-        over ();
-        k () )
+      else ( over (); k () )
   in
   { Metrics.report; now; at_exit = (fun () -> ()) }

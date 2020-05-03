@@ -20,8 +20,8 @@ depends: [
   "metrics-influx"
   "ipaddr"
   "lwt"
-  "mirage-clock"
-  "mirage-stack-lwt"
+  "mirage-clock" {>= "3.0.0"}
+  "mirage-stack" {>= "2.0.0"}
   "cstruct"
   "logs"
 ]

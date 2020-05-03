@@ -15,7 +15,7 @@ build: [
 
 depends: [
   "dune"
-  "metrics"
+  "metrics" {= version}
   "astring"
   "fmt"
   "duration"
