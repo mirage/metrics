@@ -26,8 +26,7 @@
 
 let safe_mkdir path =
   try
-    if not (Sys.is_directory path) then
-      Fmt.failwith "mkdir: %s: is a file" path
+    if not (Sys.is_directory path) then Fmt.failwith "mkdir: %s: is a file" path
   with Sys_error _ -> Unix.mkdir path 0o755
 
 let split_dirs path =
@@ -195,16 +194,14 @@ let plots_of_field t xlabel acc (src, field) =
           in
           match duration with
           | None -> acc
-          | Some d -> (file.name, d, i, label) :: acc )
+          | Some d -> (file.name, d, i, label) :: acc)
       else acc)
     t.raw acc
 
 let scatter_plot oc ~plots ~title ~xlabel ~ylabel ~yunit ~output =
   let ppf = Format.formatter_of_out_channel oc in
   let xlabel =
-    match xlabel with
-    | `Timestamp -> "Time (ns)"
-    | `Duration -> "Duration (ns)"
+    match xlabel with `Timestamp -> "Time (ns)" | `Duration -> "Duration (ns)"
   in
   let pp_plots ppf (file, i, j, label) =
     Fmt.pf ppf "'%s' using %d:%d t \"%s\"" file i j label
@@ -238,20 +235,18 @@ let plot_graph ~output_format ~xlabel t g =
   let ylabel =
     match Metrics.Graph.ylabel g with
     | Some t -> t
-    | None -> ( match fields with [] -> "" | h :: _ -> key (snd h) )
+    | None -> match fields with [] -> "" | h :: _ -> key (snd h)
   in
   let yunit =
     match Metrics.Graph.yunit g with
     | Some u -> Fmt.strf " (%s)" u
-    | None -> (
-      match fields with
-      | [] -> ""
-      | h :: _ -> (
-        match unit (snd h) with None -> "" | Some u -> Fmt.strf " (%s)" u ) )
+    | None ->
+    match fields with
+    | [] -> ""
+    | h :: _ ->
+    match unit (snd h) with None -> "" | Some u -> Fmt.strf " (%s)" u
   in
-  let title =
-    match Metrics.Graph.title g with Some t -> t | None -> ylabel
-  in
+  let title = match Metrics.Graph.title g with Some t -> t | None -> ylabel in
   let suffix = match xlabel with `Timestamp -> "" | `Duration -> ".d" in
   let basename = Fmt.strf "%s-%d%s" (escape title) (Graph.id g) suffix in
   let output = ("out" / basename) ^ ".png" in
@@ -266,7 +261,7 @@ let plot_graph ~output_format ~xlabel t g =
   | `Image -> (
     render_graph ~dir:t.dir ~out:"out" ~script_file:file |> function
     | Ok _ -> Fmt.pr "%s has been created.\n%!" (t.dir / output)
-    | Error e -> Fmt.failwith "Cannot generate %s: %s" output e )
+    | Error e -> Fmt.failwith "Cannot generate %s: %s" output e)
 
 let set_reporter ?dir ?(output = `Image) () =
   let t = empty ?dir () in

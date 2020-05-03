@@ -1,3 +1,6 @@
-version=0.11.0
-profile=conventional
+version=0.14.1
 cases-exp-indent=2
+break-infix = fit-or-vertical
+parse-docstrings = true
+indicate-multiline-delimiters=no
+nested-match=align

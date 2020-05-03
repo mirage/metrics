@@ -17,25 +17,25 @@
 (** Metrics Monitoring.
 
     [Metrics] provides a basic infrastructure to monitor metrics using time
-    series. {{!func}Monitoring} is performed on {{!srcs}sources}, indexed by
-    {{!tags}tags}. Tags allow users to select at runtime which metric sources
+    series. {{!func} Monitoring} is performed on {{!srcs} sources}, indexed by
+    {{!tags} tags}. Tags allow users to select at runtime which metric sources
     are producing data points. Disabled data-sources have a low runtime cost
     (only a closure allocation) which make [Metrics] suitable to instrument
     production systems.
 
     Both sources tags and data-points are built using dictionaries of typed
-    entries called {{!fields}fields}.
+    entries called {{!fields} fields}.
 
-    [Metrics] is heavily inspired by {{:http://erratique.ch/software/logs}Logs}
-    as it decouples metric reporting from metric monitoring. This is handled
-    by custom {{!reporter}reporters}.
+    [Metrics] is heavily inspired by {{:http://erratique.ch/software/logs} Logs}
+    as it decouples metric reporting from metric monitoring. This is handled by
+    custom {{!reporter} reporters}.
 
-    {e %%VERSION%% - {{:%%PKG_HOMEPAGE%% }homepage}} *)
+    {e %%VERSION%% - {{:%%PKG_HOMEPAGE%%} homepage}} *)
 
 (** {2:fields Fields} *)
 
 type graph
-(** The type for metric {{!graphs}graphs}. *)
+(** The type for metric {{!graphs} graphs}. *)
 
 type field
 (** The type for metric fields. *)
@@ -157,13 +157,13 @@ module Data : sig
   (** {2 Data}
 
       [Metric]'s data points are a list of typed fields with an optional
-      timestamp. They are created with the {!v} and {{!fields}field}
+      timestamp. They are created with the {!v} and {{!fields} field}
       constructors.
 
-      For instance, to create a data point with two values ["%CPU"] and
-      ["MEM"], respectively of type [float] and [int]:
+      For instance, to create a data point with two values ["%CPU"] and ["MEM"],
+      respectively of type [float] and [int]:
 
-      {[ let x = Data.v [ float "%CPU" 0.42; int "MEM" 27_000; ] ]} *)
+      {[ let x = Data.v [ float "%CPU" 0.42; int "MEM" 27_000 ] ]} *)
 
   type t
   (** The type for data points. *)
@@ -179,8 +179,8 @@ module Data : sig
   val v : ?timestamp:timestamp -> field list -> t
   (** [v ?timestamp f] is the measure [f], as a the list metric name and value,
       and the timestamp [timestamp]. If [timestamp] is not provided, it will be
-      set be the reporter. Raise [Invalid_argument] is a key or a value
-      contains an invalid character. *)
+      set be the reporter. Raise [Invalid_argument] is a key or a value contains
+      an invalid character. *)
 
   val keys : t -> key list
   (** [keys t] is [t]'s keys. *)
@@ -189,8 +189,8 @@ module Data : sig
   (** [fields t] is [t]'s fields. *)
 
   val cons : field -> t -> t
-  (** [cons f t] is the new data having the same timestamp as [t] and the
-      fields [f :: fields t]. *)
+  (** [cons f t] is the new data having the same timestamp as [t] and the fields
+      [f :: fields t]. *)
 end
 
 type data = Data.t
@@ -203,18 +203,18 @@ type data = Data.t
 module Tags : sig
   (** {2 Tags}
 
-      [Tags] are heterogeneous {{!t}lists} of key names and type of values,
-      which are associated to data sources. Filters on key names allow to
-      select which data sources is {{!enabling}enabled} at runtime. Disabled
-      data sources have a very low cost -- only allocating a closure.
+      [Tags] are heterogeneous {{!t} lists} of key names and type of values,
+      which are associated to data sources. Filters on key names allow to select
+      which data sources is {{!enabling} enabled} at runtime. Disabled data
+      sources have a very low cost -- only allocating a closure.
 
       For instance, to define the tags "PID", "IP" and "host", respectively of
       type [int], [Ipaddr.t]:
+
       {[
         let ipaddr = Tags.v Ipaddr.pp_hum in
         let t = Tags.[ int "PID" ; ipaddr "IP" ; string "host"; ]
-      ]}
-  *)
+      ]} *)
 
   type 'a v
   (** The type for tag values. *)
@@ -251,8 +251,7 @@ type tags = field list
     being measured. *)
 
 val enable_tag : key -> unit
-(** [enable_tag t] enables all the registered metric sources having the tag
-    [t]. *)
+(** [enable_tag t] enables all the registered metric sources having the tag [t]. *)
 
 val disable_tag : key -> unit
 (** [disable_tag t] disables all the registered metric sources having the tag
@@ -268,7 +267,7 @@ val disable_all : unit -> unit
 
 type ('a, 'b) src
 (** The type for metric sources. A source defines a named unit for a time
-    series. ['a] is the type of the function used to create new {{!data}data
+    series. ['a] is the type of the function used to create new {{!data} data
     points}. ['b] is the type for {!tags}. *)
 
 (** Metric sources. *)
@@ -288,20 +287,20 @@ module Src : sig
       good practice to prefix the name with the name of your package or library
       (e.g. ["mypkg.network"]). [doc] is a documentation string describing the
       source, defaults to ["undocumented"]. [tags] is the collection if (typed)
-      tags which will be used to tag and index the measure and are used
-      identify the various metrics. The source will be enabled on creation iff
-      one of tag in [tags] has been enabled with {!enable_tag}.
+      tags which will be used to tag and index the measure and are used identify
+      the various metrics. The source will be enabled on creation iff one of tag
+      in [tags] has been enabled with {!enable_tag}.
 
       For instance, to create a metric to collect CPU and memory usage on
       various machines, indexed by [PID], [host] name and [IP] address:
+
       {[
         let src =
            let ipaddr = Tags.v Ipaddr.pp_hum in
            let tags = Tags.[string "host"; ipaddr "IP" ; int "PID" ; ] in
            let data () = Data.v [float "%CPU" (...); int "MEM" (...); ] in
            Src.v "top" ~tags ~data ~doc:"Information about processess"
-      ]}
-  *)
+      ]} *)
 
   (** {3 Listing Sources} *)
 
@@ -375,8 +374,8 @@ module Graph : sig
   (** [list ()] is the list of graphs. *)
 
   val fields : t -> (Src.t * field) list
-  (** [fields t] is the list of [t]'s fields. Field names are unique for a
-      given source. *)
+  (** [fields t] is the list of [t]'s fields. Field names are unique for a given
+      source. *)
 
   val add_field : t -> Src.t -> field -> unit
   (** [add_field t src f] adds the field [f], generated by the source [src], to
@@ -482,11 +481,10 @@ val set_reporter : reporter -> unit
 
 module SM : Map.S with type key = Src.t
 
-val cache_reporter : unit ->
-  (unit -> (tags * data) SM.t) * reporter
+val cache_reporter : unit -> (unit -> (tags * data) SM.t) * reporter
 (** [cache_reporter now ()] is a reporter that stores the last measurement from
-    each source in a map (which can be retrieved by the returned function).
-    This is an initial attempt to overcome the push vs pull interface. Each
+    each source in a map (which can be retrieved by the returned function). This
+    is an initial attempt to overcome the push vs pull interface. Each
     measurement _event_ is sent at an arbitrary point in time, while reporting
     over a communication channel may be rate-limited (i.e. report every 10
     seconds statistics, rather than whenever they appear).
@@ -498,14 +496,14 @@ val cache_reporter : unit ->
 
 (** {2:runtime OCaml Gc sources}
 
-    The {{:http://caml.inria.fr/pub/docs/manual-ocaml/libref/Gc.html}Gc} module
+    The {{:http://caml.inria.fr/pub/docs/manual-ocaml/libref/Gc.html} Gc} module
     of the OCaml system provides
-    {{:http://caml.inria.fr/pub/docs/manual-ocaml/libref/Gc.html#TYPEstat}counters}
-    of the memory management via
-    {{:http://caml.inria.fr/pub/docs/manual-ocaml/libref/Gc.html#VALquick_stat}Gc.quick_stat}
-    and
-    {{:http://caml.inria.fr/pub/docs/manual-ocaml/libref/Gc.html#VALstat}Gc.stat}
-    function. Both are provided here. *)
+    {{:http://caml.inria.fr/pub/docs/manual-ocaml/libref/Gc.html#TYPEstat}
+    counters} of the memory management via
+    {{:http://caml.inria.fr/pub/docs/manual-ocaml/libref/Gc.html#VALquick_stat}
+    Gc.quick_stat} and
+    {{:http://caml.inria.fr/pub/docs/manual-ocaml/libref/Gc.html#VALstat}
+    Gc.stat} function. Both are provided here. *)
 
 val gc_stat : tags:'a Tags.t -> ('a, unit -> data) src
 (** [gc_stat ~tags] is the source of OCaml's [Gc.stat ()] memory management

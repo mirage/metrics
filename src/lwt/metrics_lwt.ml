@@ -41,9 +41,7 @@ let run src tags g =
   if not (is_active src) then g ()
   else
     let d0 = now () in
-    Lwt.catch
-      (fun () -> g () >|= fun x -> Ok x)
-      (fun e -> Lwt.return (Error e))
+    Lwt.catch (fun () -> g () >|= fun x -> Ok x) (fun e -> Lwt.return (Error e))
     >>= fun r ->
     let duration =
       mk (Src.duration (Src src)) duration (Int64.sub (now ()) d0)
@@ -97,24 +95,22 @@ let periodically src = periodic := src :: !periodic
 let log_stats ~tags =
   let doc = "Statistics of the Logs library" in
   let data () =
-    let warnings, errors = Logs.warn_count (), Logs.err_count () in
-    Data.v
-      [ int "warnings" warnings ; int "errors" errors ]
+    let warnings, errors = (Logs.warn_count (), Logs.err_count ()) in
+    Data.v [ int "warnings" warnings; int "errors" errors ]
   in
   Src.v ~doc ~tags ~data "logs"
 
 let init_periodic ?(gc = `Full) ?(logs = true) sleeper =
   (match gc with
-   | `None -> ()
-   | `Quick -> periodically (gc_quick_stat ~tags:Tags.[])
-   | `Full -> periodically (gc_stat ~tags:Tags.[]));
-  (if logs then periodically (log_stats ~tags:Tags.[]));
+  | `None -> ()
+  | `Quick -> periodically (gc_quick_stat ~tags:Tags.[])
+  | `Full -> periodically (gc_stat ~tags:Tags.[]));
+  if logs then periodically (log_stats ~tags:Tags.[]);
   let collect () =
-    List.iter (fun src -> Metrics.add src (fun x -> x) (fun d -> d ()))
+    List.iter
+      (fun src -> Metrics.add src (fun x -> x) (fun d -> d ()))
       !periodic;
     Lwt.return_unit
   in
-  let rec loop () =
-    Lwt.join [ sleeper () ; collect () ] >>= loop
-  in
+  let rec loop () = Lwt.join [ sleeper (); collect () ] >>= loop in
   Lwt.async loop

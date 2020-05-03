@@ -20,7 +20,7 @@
     only when the metric operation is over, as defined by the current
     {!Metrics.reporter}.
 
-    {e %%VERSION%% - {{:%%PKG_HOMEPAGE%% }homepage}} *)
+    {e %%VERSION%% - {{:%%PKG_HOMEPAGE%%} homepage}} *)
 
 (** {1 Metric Monitoring} *)
 
@@ -48,8 +48,8 @@ val rrun :
 val periodically : (field list, unit -> data) src -> unit
 (** [periodically src] registers [src] for periodic collection. *)
 
-val init_periodic : ?gc:[ `None | `Quick | `Full ] -> ?logs:bool ->
-  (unit -> unit Lwt.t) -> unit
+val init_periodic :
+  ?gc:[ `None | `Quick | `Full ] -> ?logs:bool -> (unit -> unit Lwt.t) -> unit
 (** [init_periodic ~gc ~logs sleeper] starts a task which {!Lwt.join} [sleeper]
     and all registered {!periodically} sources. [gc] is by default [`Full],
     collecting full GC stats - other options are [`None] and [`Quick]. If [logs]
