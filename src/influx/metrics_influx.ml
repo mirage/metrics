@@ -104,8 +104,7 @@ let avoid_keyword =
   fun m -> if String.(Set.mem (Ascii.uppercase m) keywords) then "o" ^ m else m
 
 let escape =
-  List.fold_right (fun e m' ->
-      String.(concat ~sep:("\\" ^ e) (cuts ~sep:e m')))
+  List.fold_right (fun e m' -> String.(concat ~sep:("\\" ^ e) (cuts ~sep:e m')))
 
 let escape_measurement m = escape [ ","; " " ] (avoid_keyword m)
 
@@ -170,6 +169,8 @@ let lwt_reporter ?tags:(more_tags = []) ?interval send now =
     | None -> send ()
     | Some last ->
       if now () > Int64.add last i then send ()
-      else ( over (); k () )
+      else (
+        over ();
+        k ())
   in
   { Metrics.report; now; at_exit = (fun () -> ()) }

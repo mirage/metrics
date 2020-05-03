@@ -29,9 +29,9 @@ module Influx (CLOCK : Mirage_clock.MCLOCK) (STACK : Mirage_stack.V4) : sig
     unit ->
     (Metrics.reporter, unit) result Lwt.t
   (** [create mclock stack ~interval ~hostname ip ~port ()] is [reporter], which
-     sends measurements (prefixed by [vmname hosttname] if provided), to
-     [ip:port] (defaults to 8094).  If [interval] is provided, measurements from
-     each source are at most reported once during [interval] milliseconds. Fails
-     if the initial connection attempt fails. Reconnects TCP session on
-     failure. *)
+      sends measurements (prefixed by [vmname hosttname] if provided), to
+      [ip:port] (defaults to 8094). If [interval] is provided, measurements from
+      each source are at most reported once during [interval] milliseconds.
+      Fails if the initial connection attempt fails. Reconnects TCP session on
+      failure. *)
 end

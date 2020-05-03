@@ -142,8 +142,7 @@ module Src = struct
   let list = ref []
 
   let active tags =
-    if _tags.all then true
-    else not (Keys.is_empty (Keys.inter _tags.tags tags))
+    if _tags.all then true else not (Keys.is_empty (Keys.inter _tags.tags tags))
 
   let v ?(doc = "undocumented") ?(duration = false) ?(status = false) ~tags
       ~data name =
@@ -299,8 +298,7 @@ let field ?doc ?unit ?graph ?graphs key ty v =
   in
   F { key; doc; unit; v = { ty; v }; graphs }
 
-let ff ty ?doc ?unit ?graph ?graphs k v =
-  field ?doc ?unit ?graph ?graphs k ty v
+let ff ty ?doc ?unit ?graph ?graphs k v = field ?doc ?unit ?graph ?graphs k ty v
 
 let string = ff String
 
@@ -430,15 +428,16 @@ let () = at_exit (fun () -> !_reporter.at_exit ())
 
 let now () = !_reporter.now ()
 
-module SM = Map.Make(Src)
+module SM = Map.Make (Src)
 
 let cache_reporter () =
   let m = ref SM.empty in
   let report ~tags ~data ~over src k =
     m := SM.add src (tags, data) !m;
-    over (); k ()
+    over ();
+    k ()
   in
-  (fun () -> !m), { report ; now ; at_exit = (fun () -> ()) }
+  ((fun () -> !m), { report; now; at_exit = (fun () -> ()) })
 
 let report src ~over ~k tags f =
   let tags = tags (tag src) in

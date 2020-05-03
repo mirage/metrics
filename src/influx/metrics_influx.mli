@@ -23,8 +23,9 @@ val lwt_reporter :
   (unit -> int64) ->
   Metrics.reporter
 (** [lwt_reporter ~tags ~interval send clock] is a metrics reporter that encodes
-   a measurement in
-   {{:https://docs.influxdata.com/influxdb/v1.5/write_protocols/line_protocol_reference/}influxdb
-   line protocol} and reports it via [send]. A measurement can be prefixed by an
-   optional list of [tags]. If [~interval] is specified and a positive amount of
-   milliseconds, each source measurement is reported only once within this interval. *)
+    a measurement in
+    {{:https://docs.influxdata.com/influxdb/v1.5/write_protocols/line_protocol_reference/}
+    influxdb line protocol} and reports it via [send]. A measurement can be
+    prefixed by an optional list of [tags]. If [~interval] is specified and a
+    positive amount of milliseconds, each source measurement is reported only
+    once within this interval. *)

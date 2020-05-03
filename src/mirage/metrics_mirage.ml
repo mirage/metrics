@@ -20,8 +20,7 @@ let src = Logs.Src.create "influx" ~doc:"influx metrics reporter"
 
 module Log = (val Logs.src_log src : Logs.LOG)
 
-module Influx (CLOCK : Mirage_clock.MCLOCK) (STACK : Mirage_stack.V4) =
-struct
+module Influx (CLOCK : Mirage_clock.MCLOCK) (STACK : Mirage_stack.V4) = struct
   module TCP = STACK.TCPV4
 
   let vmname =
@@ -63,7 +62,7 @@ struct
           Log.err (fun m ->
               m "error %a while writing to influx reporter, reconnecting"
                 TCP.pp_write_error e);
-          reconnect send msg )
+          reconnect send msg)
     in
     connect () >|= function
     | Ok () ->
