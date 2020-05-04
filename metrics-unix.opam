@@ -16,10 +16,10 @@ build: [
 depends: [
   "dune"
   "uuidm"
-  "metrics"
+  "metrics" {= version}
   "mtime"
   "lwt"
-  "metrics-lwt" {with-test}
+  "metrics-lwt" {= version & with-test}
   "conf-gnuplot"
 ]
 synopsis: "Unix backend for the Metrics library"
