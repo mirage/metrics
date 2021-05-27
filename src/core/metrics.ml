@@ -404,8 +404,8 @@ type reporter = {
   now : unit -> int64;
   at_exit : unit -> unit;
   report :
-    'a. tags:tags -> data:data -> over:(unit -> unit) -> Src.t ->
-    (unit -> 'a) -> 'a;
+    'a.
+    tags:tags -> data:data -> over:(unit -> unit) -> Src.t -> (unit -> 'a) -> 'a;
 }
 
 let nop_reporter =
