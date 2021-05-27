@@ -50,14 +50,11 @@ let string_of_file filename =
   with _ -> Rresult.R.error_msgf "Error reading file %S" filename
 
 let parse_proc_stat s =
-  let stats_opt =
-    match String.rindex_opt s ')' with
-    | None -> None
-    | Some idx -> 
-      let rest = String.sub s idx (String.length s - idx) in
-      Some (String.split_on_char ' ' rest)
-  in
-  Option.to_result ~none:(`Msg "unable to parse /proc/self/stat") stats_opt
+  match String.rindex_opt s ')' with
+  | None -> Error (`Msg "unable to parse /proc/self/stat")
+  | Some idx ->
+    let rest = String.sub s idx (String.length s - idx) in
+    Ok (String.split_on_char ' ' rest)
 
 let linux_kinfo () =
   (match Unix.stat "/proc/self" with
