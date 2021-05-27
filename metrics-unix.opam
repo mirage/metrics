@@ -22,5 +22,6 @@ depends: [
   "lwt"
   "metrics-lwt" {= version & with-test}
   "conf-gnuplot"
+  "fmt"
 ]
 synopsis: "Unix backend for the Metrics library"
