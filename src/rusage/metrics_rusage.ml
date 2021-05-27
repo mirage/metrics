@@ -38,10 +38,8 @@ external getrusage : unit -> rusage = "metrics_rusage"
 
 external uname : unit -> string = "metrics_uname"
 
-let rec wrap f arg =
-  try Ok (f arg) with
-  | Unix.Unix_error (Unix.EINTR, _, _) -> wrap f arg
-  | e -> Error (`Msg (Printexc.to_string e))
+let wrap f arg =
+  try Ok (f arg) with e -> Error (`Msg (Printexc.to_string e))
 
 let string_of_file filename =
   try
