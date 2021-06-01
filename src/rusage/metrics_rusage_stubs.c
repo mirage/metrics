@@ -122,14 +122,7 @@ CAMLprim value metrics_sysctl_kinfo_proc (value pid_r) {
   CAMLreturn(res);
 }
 
-#elif __linux__ /* FreeBSD */
-
-CAMLprim value metrics_sysctl_kinfo_proc (value pid_r) {
-  CAMLparam1(pid_r);
-  uerror("sysctl_kinfo_proc", Nothing);
-}
-
-#else /* Linux */
+#else /* FreeBSD */
 
 /* stub symbols for OS currently not supported */
 
