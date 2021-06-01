@@ -73,18 +73,17 @@ let linux_kinfo () =
     try Ok (Int64.of_string s)
     with Failure _ -> Error (`Msg "couldn't parse integer")
   in
-  let time_of_int64 t =
+  let us_of_int64 t =
     let clock_tick = Int64.of_int (sysconf_clock_tick ()) in
     let ( * ) = Int64.mul and ( / ) = Int64.div in
-    ( t / clock_tick,
-      Int64.to_int (Int64.rem t clock_tick * 1_000_000L / clock_tick) )
+    t * 1_000_000L / clock_tick
   in
   if List.length stat_vals >= 50 && List.length statm_vals >= 7 then
     i64 (List.nth stat_vals 11) >>= fun utime ->
     (* divide by sysconf(_SC_CLK_TCK) *)
     i64 (List.nth stat_vals 12) >>= fun stime ->
     (* divide by sysconf(_SC_CLK_TCK) *)
-    let runtime = fst (time_of_int64 Int64.(add utime stime)) in
+    let runtime = us_of_int64 Int64.(add utime stime) in
     i64 (List.nth stat_vals 20) >>= fun vsize ->
     (* in bytes *)
     i64 (List.nth stat_vals 21) >>= fun rss ->
