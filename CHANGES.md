@@ -1,3 +1,10 @@
+## v0.3.0
+
+- Add a metrics-rusage opam package that collects data from getrusage and
+  /proc/self/stat (and /proc/self/statm). (#50, @reynir and @hannesm)
+- Update ocamlformat to 0.18.0
+- "pinned" is now "dev" in opam files
+
 ## 0.2.0
 
 - Add mirage layer and influxdb reporter (#28, @hannesm)
