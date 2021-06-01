@@ -1,6 +1,6 @@
 opam-version: "2.0"
-maintainer:   "thomas@gazagnaire.org"
-authors:      ["Thomas Gazagnaire"]
+maintainer:   "team@robur.coop"
+authors:      ["Reynir Bjoernsson" "Hannes Mehnert"]
 license:      "ISC"
 homepage:     "https://github.com/mirage/metrics"
 bug-reports:  "https://github.com/mirage/metrics/issues"
