@@ -1,6 +1,6 @@
 opam-version: "2.0"
-maintainer:   "thomas@gazagnaire.org"
-authors:      ["Thomas Gazagnaire"]
+maintainer:   "team@robur.coop"
+authors:      ["Reynir Bjoernsson" "Hannes Mehnert"]
 license:      "ISC"
 homepage:     "https://github.com/mirage/metrics"
 bug-reports:  "https://github.com/mirage/metrics/issues"
@@ -14,10 +14,11 @@ build: [
 ]
 
 depends: [
-  "ocaml" {>= "4.05.0"}
+  "ocaml" {>= "4.07.0"}
   "dune" {>= "1.4"}
   "metrics" {= version}
-  "lwt"
   "logs"
+  "fmt"
+  "rresult"
 ]
-synopsis: "Lwt backend for the Metrics library"
+synopsis: "Resource usage (getrusage) sources for the Metrics library"

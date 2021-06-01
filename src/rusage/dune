@@ -1,0 +1,5 @@
+(library
+  (name metrics_rusage)
+  (public_name metrics-rusage)
+  (libraries metrics rresult fmt logs unix)
+  (c_names metrics_rusage_stubs))
