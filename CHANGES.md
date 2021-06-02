@@ -1,11 +1,11 @@
-## v0.3.0
+## v0.3.0 (2021-06-02)
 
 - Add a metrics-rusage opam package that collects data from getrusage and
   /proc/self/stat (and /proc/self/statm). (#50, @reynir and @hannesm)
 - Update ocamlformat to 0.18.0
 - "pinned" is now "dev" in opam files
 
-## 0.2.0
+## 0.2.0 (2020-05-03)
 
 - Add mirage layer and influxdb reporter (#28, @hannesm)
 - Gnuplot: namespacing improvements (#34, @CraigFe)
@@ -22,6 +22,6 @@
   (used e.g. for GC stats etc.) (#42, @hannesm)
 - Mirage: fix the mirage subpackage for newer mirage APIs (#42, @hannesm)
 
-## 0.1.0
+## 0.1.0 (2018-10-19)
 
 Initial version
