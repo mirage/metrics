@@ -15,6 +15,9 @@
  *)
 
 val encode_line_protocol : Metrics.tags -> Metrics.data -> string -> string
+(** [encode_line_protocol tags data name] encodes the [tags] and [data] to the
+    {{:https://docs.influxdata.com/influxdb/v1.5/write_protocols/line_protocol_reference/}
+    influx line protocol}, using [name] as measurement. *)
 
 val lwt_reporter :
   ?tags:Metrics.tags ->
