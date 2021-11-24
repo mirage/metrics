@@ -132,19 +132,19 @@ let encode_line_protocol tags data name =
   let data_fields = Metrics.Data.fields data in
   let pp_field_str ppf s = Fmt.pf ppf "%S" s in
   let pp_field ppf f =
-    Fmt.(pair ~sep:(unit "=") string (pp_value pp_field_str))
+    Fmt.(pair ~sep:(any "=") string (pp_value pp_field_str))
       ppf
       (escape_name (Metrics.key f), f)
   in
-  let pp_fields = Fmt.(list ~sep:(unit ",") pp_field) in
+  let pp_fields = Fmt.(list ~sep:(any ",") pp_field) in
   let pp_tag_str ppf s = Fmt.string ppf (escape_name s) in
   let pp_tag ppf f =
-    Fmt.(pair ~sep:(unit "=") string (pp_value pp_tag_str))
+    Fmt.(pair ~sep:(any "=") string (pp_value pp_tag_str))
       ppf
       (escape_name (Metrics.key f), f)
   in
-  let pp_tags = Fmt.(list ~sep:(unit ",") pp_tag) in
-  Fmt.strf "%s,%a %a\n" (escape_measurement name) pp_tags tags pp_fields
+  let pp_tags = Fmt.(list ~sep:(any ",") pp_tag) in
+  Fmt.str "%s,%a %a\n" (escape_measurement name) pp_tags tags pp_fields
     data_fields
 
 module SM = Map.Make (Metrics.Src)

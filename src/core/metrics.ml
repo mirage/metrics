@@ -188,7 +188,7 @@ module Src = struct
   let data (Src s) = match s.data_fields with None -> [] | Some l -> l
 
   let pp_strings ppf l =
-    Fmt.pf ppf "@[<1>(%a)@]" Fmt.(list ~sep:(unit " ") string) l
+    Fmt.pf ppf "@[<1>(%a)@]" Fmt.(list ~sep:(any " ") string) l
 
   let pp ppf (Src src) =
     let tags = Keys.elements (Tags.domain src.tags) in
