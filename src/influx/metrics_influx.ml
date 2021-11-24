@@ -20,11 +20,11 @@
 (* example line: weather,location=us-midwest temperature=82 1465839830100400200 *)
 (*************)
 
-open Astring
+module S = Set.Make(String)
 
 let avoid_keyword =
   let keywords =
-    String.Set.of_list
+    S.of_list
       [
         "ALL";
         "ALTER";
@@ -101,14 +101,16 @@ let avoid_keyword =
         "WRITE";
       ]
   in
-  fun m -> if String.(Set.mem (Ascii.uppercase m) keywords) then "o" ^ m else m
+  fun m -> if S.mem (String.uppercase_ascii m) keywords then "o" ^ m else m
 
 let escape =
-  List.fold_right (fun e m' -> String.(concat ~sep:("\\" ^ e) (cuts ~sep:e m')))
+  List.fold_right
+    (fun e m' -> String.concat ("\\" ^ Char.escaped e)
+        (String.split_on_char e m'))
 
-let escape_measurement m = escape [ ","; " " ] (avoid_keyword m)
+let escape_measurement m = escape [ ','; ' ' ] (avoid_keyword m)
 
-let escape_name m = escape [ ","; " "; "=" ] (avoid_keyword m)
+let escape_name m = escape [ ','; ' '; '=' ] (avoid_keyword m)
 
 let pp_value (str : string Fmt.t) ppf f =
   let open Metrics in
