@@ -28,7 +28,7 @@ type kinfo_mem = {
   start : int64 * int;
 }
 
-open Rresult.R.Infix
+let ( let* ) = Result.bind
 
 external sysconf_clock_tick : unit -> int = "metrics_sysconf_clock_tick"
 
@@ -46,7 +46,7 @@ let string_of_file filename =
     let content = input_line fh in
     close_in_noerr fh;
     Ok content
-  with _ -> Rresult.R.error_msgf "Error reading file %S" filename
+  with _ -> Error (`Msg (Fmt.str "Error reading file %S" filename))
 
 let parse_proc_stat s =
   match String.rindex_opt s ')' with
@@ -56,18 +56,19 @@ let parse_proc_stat s =
     Ok (String.split_on_char ' ' rest)
 
 let linux_kinfo () =
-  (match Unix.stat "/proc/self" with
-  | { Unix.st_ctime = start; _ } ->
-    let frac = Float.rem start 1. in
-    Ok (Int64.of_float start, int_of_float (frac *. 1_000_000.))
-  | exception Unix.Unix_error (Unix.ENOENT, _, _) ->
-    Error (`Msg "failed to stat process"))
-  >>= fun start ->
+  let* start =
+    match Unix.stat "/proc/self" with
+    | { Unix.st_ctime = start; _ } ->
+      let frac = Float.rem start 1. in
+      Ok (Int64.of_float start, int_of_float (frac *. 1_000_000.))
+    | exception Unix.Unix_error (Unix.ENOENT, _, _) ->
+      Error (`Msg "failed to stat process")
+  in
   (* reading /proc/self/stat - since it may disappear mid-time,
      best to have it in memory *)
-  string_of_file "/proc/self/stat" >>= fun data ->
-  parse_proc_stat data >>= fun stat_vals ->
-  string_of_file "/proc/self/statm" >>= fun data ->
+  let* data = string_of_file "/proc/self/stat" in
+  let* stat_vals = parse_proc_stat data in
+  let* data = string_of_file "/proc/self/statm" in
   let statm_vals = String.split_on_char ' ' data in
   let i64 s =
     try Ok (Int64.of_string s)
@@ -79,19 +80,19 @@ let linux_kinfo () =
     t * 1_000_000L / clock_tick
   in
   if List.length stat_vals >= 50 && List.length statm_vals >= 7 then
-    i64 (List.nth stat_vals 11) >>= fun utime ->
+    let* utime = i64 (List.nth stat_vals 11) in
     (* divide by sysconf(_SC_CLK_TCK) *)
-    i64 (List.nth stat_vals 12) >>= fun stime ->
+    let* stime = i64 (List.nth stat_vals 12) in
     (* divide by sysconf(_SC_CLK_TCK) *)
     let runtime = us_of_int64 Int64.(add utime stime) in
-    i64 (List.nth stat_vals 20) >>= fun vsize ->
+    let* vsize = i64 (List.nth stat_vals 20) in
     (* in bytes *)
-    i64 (List.nth stat_vals 21) >>= fun rss ->
+    let* rss = i64 (List.nth stat_vals 21) in
     (* in pages *)
-    i64 (List.nth statm_vals 3) >>= fun tsize ->
-    i64 (List.nth statm_vals 5) >>= fun dsize ->
+    let* tsize = i64 (List.nth statm_vals 3) in
+    let* dsize = i64 (List.nth statm_vals 5) in
     (* data + stack *)
-    i64 (List.nth statm_vals 5) >>= fun ssize ->
+    let* ssize = i64 (List.nth statm_vals 5) in
     (* data + stack *)
     Ok { vsize; rss; tsize; dsize; ssize; runtime; cow = 0; start }
   else Error (`Msg "couldn't read /proc/self/stat")
