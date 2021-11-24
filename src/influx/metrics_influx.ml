@@ -20,7 +20,7 @@
 (* example line: weather,location=us-midwest temperature=82 1465839830100400200 *)
 (*************)
 
-module S = Set.Make(String)
+module S = Set.Make (String)
 
 let avoid_keyword =
   let keywords =
@@ -104,9 +104,8 @@ let avoid_keyword =
   fun m -> if S.mem (String.uppercase_ascii m) keywords then "o" ^ m else m
 
 let escape =
-  List.fold_right
-    (fun e m' -> String.concat ("\\" ^ Char.escaped e)
-        (String.split_on_char e m'))
+  List.fold_right (fun e m' ->
+      String.concat ("\\" ^ Char.escaped e) (String.split_on_char e m'))
 
 let escape_measurement m = escape [ ','; ' ' ] (avoid_keyword m)
 
@@ -125,11 +124,11 @@ let pp_value (str : string Fmt.t) ppf f =
   | _ -> pp_value ppf f
 
 (* we need to:
-  - avoid keywords
-  - escape comma and space in measurement name
-  - escape comma, space and equal in tag key, tag value, field key of type string
-  - double-quote field value of type string
-  - data type number is a float, suffix i for integers *)
+   - avoid keywords
+   - escape comma and space in measurement name
+   - escape comma, space and equal in tag key, tag value, field key of type string
+   - double-quote field value of type string
+   - data type number is a float, suffix i for integers *)
 let encode_line_protocol tags data name =
   let data_fields = Metrics.Data.fields data in
   let pp_field_str ppf s = Fmt.pf ppf "%S" s in
