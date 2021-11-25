@@ -76,9 +76,9 @@ let escape s =
   Buffer.contents b
 
 let filename (src, tags) =
-  let pp_tags = Fmt.(list ~sep:(unit "-") pp_value) in
+  let pp_tags = Fmt.(list ~sep:(any "-") pp_value) in
   let name = Src.name src in
-  let file = Fmt.strf "%a" pp_tags (string "" name :: tags) in
+  let file = Fmt.str "%a" pp_tags (string "" name :: tags) in
   escape file ^ ".data"
 
 module Raw = struct
@@ -149,7 +149,7 @@ let write t src ~data_fields ~tags fmt =
 let pp_tags =
   let e pp ppf x = Fmt.string ppf (escape (Fmt.to_to_string pp x)) in
   let pp_tag ppf t = Fmt.pf ppf "%a=%a" (e pp_key) t (e pp_value) t in
-  Fmt.(list ~sep:(unit ", ") pp_tag)
+  Fmt.(list ~sep:(any ", ") pp_tag)
 
 let read_file file =
   let ic = open_in file in
@@ -183,7 +183,7 @@ let plots_of_field t xlabel acc (src, field) =
         let label =
           match tags with
           | [] -> key field
-          | _ -> Fmt.strf "%a (%s)" pp_tags tags (key field)
+          | _ -> Fmt.str "%a (%s)" pp_tags tags (key field)
         in
         match xlabel with
         | `Timestamp -> (file.name, 1, i, label) :: acc
@@ -221,13 +221,13 @@ set output '%s'
 plot %a
 |}
       title xlabel ylabel yunit output
-      Fmt.(list ~sep:(unit ", ") pp_plots)
+      Fmt.(list ~sep:(any ", ") pp_plots)
       plots
 
 let render_graph ~dir ~out ~script_file =
   let out_dir = dir / out in
   if not (Sys.file_exists out_dir) then Unix.mkdir out_dir 0o755;
-  Fmt.strf "cd %s && gnuplot %s" dir script_file |> read_output
+  Fmt.str "cd %s && gnuplot %s" dir script_file |> read_output
 
 let plot_graph ~output_format ~xlabel t g =
   let fields = Graph.fields g in
@@ -239,16 +239,16 @@ let plot_graph ~output_format ~xlabel t g =
   in
   let yunit =
     match Metrics.Graph.yunit g with
-    | Some u -> Fmt.strf " (%s)" u
+    | Some u -> Fmt.str " (%s)" u
     | None ->
     match fields with
     | [] -> ""
     | h :: _ ->
-    match unit (snd h) with None -> "" | Some u -> Fmt.strf " (%s)" u
+    match unit (snd h) with None -> "" | Some u -> Fmt.str " (%s)" u
   in
   let title = match Metrics.Graph.title g with Some t -> t | None -> ylabel in
   let suffix = match xlabel with `Timestamp -> "" | `Duration -> ".d" in
-  let basename = Fmt.strf "%s-%d%s" (escape title) (Graph.id g) suffix in
+  let basename = Fmt.str "%s-%d%s" (escape title) (Graph.id g) suffix in
   let output = ("out" / basename) ^ ".png" in
   let file = (t.dir / basename) ^ ".gp" in
   mkdir (Filename.dirname file);
@@ -268,7 +268,7 @@ let set_reporter ?dir ?(output = `Image) () =
   let report ~tags ~data ~over src k =
     let data_fields = Data.fields data in
     (* TODO: quote values *)
-    let pp = Fmt.(list ~sep:(unit ", ") pp_value) in
+    let pp = Fmt.(list ~sep:(any ", ") pp_value) in
     let timestamp =
       match Data.timestamp data with
       | Some ts -> ts

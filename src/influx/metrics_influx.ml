@@ -20,11 +20,11 @@
 (* example line: weather,location=us-midwest temperature=82 1465839830100400200 *)
 (*************)
 
-open Astring
+module S = Set.Make (String)
 
 let avoid_keyword =
   let keywords =
-    String.Set.of_list
+    S.of_list
       [
         "ALL";
         "ALTER";
@@ -101,14 +101,15 @@ let avoid_keyword =
         "WRITE";
       ]
   in
-  fun m -> if String.(Set.mem (Ascii.uppercase m) keywords) then "o" ^ m else m
+  fun m -> if S.mem (String.uppercase_ascii m) keywords then "o" ^ m else m
 
 let escape =
-  List.fold_right (fun e m' -> String.(concat ~sep:("\\" ^ e) (cuts ~sep:e m')))
+  List.fold_right (fun e m' ->
+      String.concat ("\\" ^ Char.escaped e) (String.split_on_char e m'))
 
-let escape_measurement m = escape [ ","; " " ] (avoid_keyword m)
+let escape_measurement m = escape [ ','; ' ' ] (avoid_keyword m)
 
-let escape_name m = escape [ ","; " "; "=" ] (avoid_keyword m)
+let escape_name m = escape [ ','; ' '; '=' ] (avoid_keyword m)
 
 let pp_value (str : string Fmt.t) ppf f =
   let open Metrics in
@@ -123,28 +124,28 @@ let pp_value (str : string Fmt.t) ppf f =
   | _ -> pp_value ppf f
 
 (* we need to:
-  - avoid keywords
-  - escape comma and space in measurement name
-  - escape comma, space and equal in tag key, tag value, field key of type string
-  - double-quote field value of type string
-  - data type number is a float, suffix i for integers *)
+   - avoid keywords
+   - escape comma and space in measurement name
+   - escape comma, space and equal in tag key, tag value, field key of type string
+   - double-quote field value of type string
+   - data type number is a float, suffix i for integers *)
 let encode_line_protocol tags data name =
   let data_fields = Metrics.Data.fields data in
   let pp_field_str ppf s = Fmt.pf ppf "%S" s in
   let pp_field ppf f =
-    Fmt.(pair ~sep:(unit "=") string (pp_value pp_field_str))
+    Fmt.(pair ~sep:(any "=") string (pp_value pp_field_str))
       ppf
       (escape_name (Metrics.key f), f)
   in
-  let pp_fields = Fmt.(list ~sep:(unit ",") pp_field) in
+  let pp_fields = Fmt.(list ~sep:(any ",") pp_field) in
   let pp_tag_str ppf s = Fmt.string ppf (escape_name s) in
   let pp_tag ppf f =
-    Fmt.(pair ~sep:(unit "=") string (pp_value pp_tag_str))
+    Fmt.(pair ~sep:(any "=") string (pp_value pp_tag_str))
       ppf
       (escape_name (Metrics.key f), f)
   in
-  let pp_tags = Fmt.(list ~sep:(unit ",") pp_tag) in
-  Fmt.strf "%s,%a %a\n" (escape_measurement name) pp_tags tags pp_fields
+  let pp_tags = Fmt.(list ~sep:(any ",") pp_tag) in
+  Fmt.str "%s,%a %a\n" (escape_measurement name) pp_tags tags pp_fields
     data_fields
 
 module SM = Map.Make (Metrics.Src)
