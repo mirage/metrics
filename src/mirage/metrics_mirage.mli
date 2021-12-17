@@ -16,7 +16,7 @@
 (** Metrics reporters using MirageOS *)
 
 (** Influx reporter *)
-module Influx (CLOCK : Mirage_clock.MCLOCK) (STACK : Mirage_stack.V4) : sig
+module Influx (CLOCK : Mirage_clock.MCLOCK) (STACK : Tcpip.Stack.V4) : sig
   val vmname : string -> Metrics.field
   (** [vmname name] creates a [tag] with the virtual machine name. *)
 

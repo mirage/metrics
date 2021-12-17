@@ -20,7 +20,7 @@ let src = Logs.Src.create "influx" ~doc:"influx metrics reporter"
 
 module Log = (val Logs.src_log src : Logs.LOG)
 
-module Influx (CLOCK : Mirage_clock.MCLOCK) (STACK : Mirage_stack.V4) = struct
+module Influx (CLOCK : Mirage_clock.MCLOCK) (STACK : Tcpip.Stack.V4) = struct
   module TCP = STACK.TCPV4
 
   let vmname =
