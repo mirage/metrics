@@ -1,3 +1,11 @@
+## v0.4.0 (2022-01-28)
+
+- metrics-influx: remove astring dependency (#52 @hannesm)
+- metrics-rusage: remove rresult dependency (#52 @hannesm)
+- metrics-mirage: remove this package (unused, #53 @hannesm)
+- metrics: provide tags_enabled and all_enabled to allow introspection what
+  sources are enabled (#55 @hannesm, requested by @reynir in #54)
+
 ## v0.3.0 (2021-06-02)
 
 - Add a metrics-rusage opam package that collects data from getrusage and
