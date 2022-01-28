@@ -504,6 +504,10 @@ let rrun src tags g =
         (fun f -> f (Error x));
       raise e
 
+let tags_enabled () = Keys.elements Src._tags.tags
+
+let all_enabled () = Src._tags.all
+
 let enable_tag t =
   Src._tags.tags <- Keys.add t Src._tags.tags;
   Src.update ()

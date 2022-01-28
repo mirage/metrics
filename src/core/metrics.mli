@@ -250,6 +250,12 @@ type tags = field list
 (** The type for metric tags. Used to distinguish the various entities that are
     being measured. *)
 
+val tags_enabled : unit -> key list
+(** [tags_enabled ()] is the list of tags that are enabled. *)
+
+val all_enabled : unit -> bool
+(** [all_enabled ()] is true if all metric sources are enabled. *)
+
 val enable_tag : key -> unit
 (** [enable_tag t] enables all the registered metric sources having the tag [t]. *)
 
