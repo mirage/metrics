@@ -20,4 +20,5 @@ depends: [
   "logs"
   "fmt" {>= "0.8.7"}
 ]
+conflicts: [ "result" {< "1.5"} ]
 synopsis: "Resource usage (getrusage) sources for the Metrics library"
