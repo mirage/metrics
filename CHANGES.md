@@ -1,3 +1,8 @@
+## v0.4.1 (2023-06-08)
+
+- metrics-unix: adapt to mtime 2.0.0 changes (remove dependency on mtime.clock)
+  (#58 @adatario)
+
 ## v0.4.0 (2022-01-28)
 
 - metrics-influx: remove astring dependency (#52 @hannesm)
