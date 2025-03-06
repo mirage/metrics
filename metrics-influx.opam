@@ -22,3 +22,4 @@ depends: [
   "lwt" {>= "2.4.7"}
 ]
 synopsis: "Influx reporter for the Metrics library"
+x-maintenance-intent: [ "(latest)" ]

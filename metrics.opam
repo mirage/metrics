@@ -34,3 +34,4 @@ custom reporter. A few reporters are (will be) provided by default.
 Metrics is heavily inspired by
 [Logs](http://erratique.ch/software/logs).
 """
+x-maintenance-intent: [ "(latest)" ]

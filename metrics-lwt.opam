@@ -21,3 +21,4 @@ depends: [
   "logs"
 ]
 synopsis: "Lwt backend for the Metrics library"
+x-maintenance-intent: [ "(latest)" ]
