@@ -22,3 +22,4 @@ depends: [
 ]
 conflicts: [ "result" {< "1.5"} ]
 synopsis: "Resource usage (getrusage) sources for the Metrics library"
+x-maintenance-intent: [ "(latest)" ]
