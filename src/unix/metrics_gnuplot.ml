@@ -107,7 +107,7 @@ end
 
 type t = { dir : string; raw : file Raw.Tbl.t; lly : Graph.t Lonely.Tbl.t }
 
-let uuid = Uuidm.v `V4
+let uuid = Uuidm.v4_gen (Random.State.make_self_init ()) ()
 
 let default_dir = Unix.getcwd () / "_metrics" / Uuidm.to_string uuid
 
