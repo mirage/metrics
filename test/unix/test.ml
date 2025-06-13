@@ -44,7 +44,7 @@ let src =
   let data i =
     Data.v [ float "CPU" ~graph (float_of_int i ** 2.); int "MEM" ~graph i ]
   in
-  Src.v "test" ~tags ~data
+  Src.v "test2" ~tags ~data
 
 let i0 t = t "foo"
 let i1 t = t "bar"

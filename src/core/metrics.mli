@@ -293,6 +293,9 @@ module Src : sig
       the various metrics. The source will be enabled on creation iff one of tag
       in [tags] has been enabled with {!enable_tag}.
 
+      If there's already a source with the name, an Invalid_argument exception
+      is raised.
+
       For instance, to create a metric to collect CPU and memory usage on
       various machines, indexed by [PID], [host] name and [IP] address:
 

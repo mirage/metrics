@@ -100,7 +100,6 @@ module Src = struct
   let _tags = { all = false; tags = Keys.empty }
 
   type ('a, 'b) src = {
-    uid : int;
     name : string;
     doc : string;
     dom : Keys.t;
@@ -114,12 +113,6 @@ module Src = struct
 
   type t = Src : ('a, 'b) src -> t
 
-  let uid =
-    let id = ref (-1) in
-    fun () ->
-      incr id;
-      !id
-
   let list = ref []
 
   let active tags =
@@ -129,12 +122,13 @@ module Src = struct
       ~data name =
     let dom = Tags.domain tags in
     let active = active dom in
+    if List.exists (fun (Src src) -> String.equal src.name name) !list then
+      invalid_arg ("a metrics source with the same name (" ^ name ^ ") already exists");
     let src =
       {
         duration;
         status;
         dom;
-        uid = uid ();
         name;
         doc;
         tags;
@@ -152,8 +146,8 @@ module Src = struct
   let name (Src s) = s.name
   let doc (Src s) = s.doc
   let tags (Src s) = Keys.elements s.dom
-  let equal (Src src0) (Src src1) = src0.uid = src1.uid
-  let compare (Src src0) (Src src1) = compare src0.uid src1.uid
+  let equal (Src src0) (Src src1) = String.equal src0.name src1.name
+  let compare (Src src0) (Src src1) = String.compare src0.name src1.name
   let duration (Src s) = s.duration
   let status (Src s) = s.status
   let data (Src s) = match s.data_fields with None -> [] | Some l -> l
@@ -165,9 +159,9 @@ module Src = struct
     let tags = Keys.elements (Tags.domain src.tags) in
     let data = match src.data_fields with None -> [] | Some l -> l in
     Format.fprintf ppf
-      "@[<1>(src@   @[<1>(name %S)@]@   @[<1>(uid %d)@]   @[<1>(doc %S)@])   \
+      "@[<1>(src@   @[<1>(name %S)@]@   @[<1>(doc %S)@])   \
        @[<1>(tags (%a))@]   @[<1>(data (%a))@] @]"
-      src.name src.uid src.doc pp_strings tags pp_strings data
+      src.name src.doc pp_strings tags pp_strings data
 
   let list () = !list
   let update () = List.iter (fun (Src s) -> s.active <- active s.dom) (list ())
