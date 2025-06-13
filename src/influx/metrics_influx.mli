@@ -17,7 +17,7 @@
 val encode_line_protocol : Metrics.tags -> Metrics.data -> string -> string
 (** [encode_line_protocol tags data name] encodes the [tags] and [data] to the
     {{:https://docs.influxdata.com/influxdb/v1.5/write_protocols/line_protocol_reference/}
-    influx line protocol}, using [name] as measurement. *)
+     influx line protocol}, using [name] as measurement. *)
 
 val lwt_reporter :
   ?tags:Metrics.tags ->
@@ -28,7 +28,7 @@ val lwt_reporter :
 (** [lwt_reporter ~tags ~interval send clock] is a metrics reporter that encodes
     a measurement in
     {{:https://docs.influxdata.com/influxdb/v1.5/write_protocols/line_protocol_reference/}
-    influxdb line protocol} and reports it via [send]. A measurement can be
+     influxdb line protocol} and reports it via [send]. A measurement can be
     prefixed by an optional list of [tags]. If [~interval] is specified and a
     positive amount of milliseconds, each source measurement is reported only
     once within this interval. *)

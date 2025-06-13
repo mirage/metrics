@@ -148,7 +148,8 @@ val pp_key : field Fmt.t
 (** [pp_key] is the pretty-printer for field keys. *)
 
 val pp_value : field Fmt.t
-(** [pp_value] is the pretty-printer for field values, using sensible default. *)
+(** [pp_value] is the pretty-printer for field values, using sensible default.
+*)
 
 (** {2:data Data points} *)
 
@@ -163,7 +164,9 @@ module Data : sig
       For instance, to create a data point with two values ["%CPU"] and ["MEM"],
       respectively of type [float] and [int]:
 
-      {[ let x = Data.v [ float "%CPU" 0.42; int "MEM" 27_000 ] ]} *)
+      {[
+        let x = Data.v [ float "%CPU" 0.42; int "MEM" 27_000 ]
+      ]} *)
 
   type t
   (** The type for data points. *)
@@ -228,21 +231,13 @@ module Tags : sig
   (** [ty pp] is a new typed tag. *)
 
   val string : string -> string v
-
   val float : string -> float v
-
   val int : string -> int v
-
   val uint : string -> int v
-
   val int32 : string -> int32 v
-
   val uint32 : string -> int32 v
-
   val int64 : string -> int64 v
-
   val uint64 : string -> int64 v
-
   val bool : string -> bool v
 end
 
@@ -257,7 +252,8 @@ val all_enabled : unit -> bool
 (** [all_enabled ()] is true if all metric sources are enabled. *)
 
 val enable_tag : key -> unit
-(** [enable_tag t] enables all the registered metric sources having the tag [t]. *)
+(** [enable_tag t] enables all the registered metric sources having the tag [t].
+*)
 
 val disable_tag : key -> unit
 (** [disable_tag t] disables all the registered metric sources having the tag
@@ -273,8 +269,8 @@ val disable_all : unit -> unit
 
 type ('a, 'b) src
 (** The type for metric sources. A source defines a named unit for a time
-    series. ['a] is the type of the function used to create new {{!data} data
-    points}. ['b] is the type for {!tags}. *)
+    series. ['a] is the type of the function used to create new
+    {{!data} data points}. ['b] is the type for {!tags}. *)
 
 (** Metric sources. *)
 module Src : sig
@@ -392,47 +388,28 @@ module Graph : sig
       source [src], out of the graph [t]. *)
 
   val enable : t -> unit
-
   val disable : t -> unit
-
   val is_active : t -> bool
 end
 
 module Key : sig
   val duration : string
-
   val status : string
-
   val minor_words : string
-
   val promoted_words : string
-
   val major_words : string
-
   val minor_collections : string
-
   val major_collections : string
-
   val heap_words : string
-
   val heap_chunks : string
-
   val compactions : string
-
   val live_words : string
-
   val live_blocks : string
-
   val free_words : string
-
   val free_blocks : string
-
   val largest_free : string
-
   val fragments : string
-
   val top_heap_words : string
-
   val stack_size : string
 end
 
@@ -505,11 +482,11 @@ val cache_reporter : unit -> (unit -> (tags * data) SM.t) * reporter
     The {{:http://caml.inria.fr/pub/docs/manual-ocaml/libref/Gc.html} Gc} module
     of the OCaml system provides
     {{:http://caml.inria.fr/pub/docs/manual-ocaml/libref/Gc.html#TYPEstat}
-    counters} of the memory management via
+     counters} of the memory management via
     {{:http://caml.inria.fr/pub/docs/manual-ocaml/libref/Gc.html#VALquick_stat}
-    Gc.quick_stat} and
+     Gc.quick_stat} and
     {{:http://caml.inria.fr/pub/docs/manual-ocaml/libref/Gc.html#VALstat}
-    Gc.stat} function. Both are provided here. *)
+     Gc.stat} function. Both are provided here. *)
 
 val gc_stat : tags:'a Tags.t -> ('a, unit -> data) src
 (** [gc_stat ~tags] is the source of OCaml's [Gc.stat ()] memory management
@@ -529,5 +506,4 @@ val report :
 (**/*)
 
 val init : ('a, 'b) src -> data -> unit
-
 val now : unit -> int64

@@ -28,9 +28,7 @@ let src =
   Src.v "test" ~tags ~data
 
 let i0 t = t 42 "foo.local"
-
 let i1 t = t 12 "toto.com"
-
 let f tags i = Metrics.add src tags (fun m -> m i)
 
 let run () =
@@ -49,9 +47,7 @@ let src =
   Src.v "test" ~tags ~data
 
 let i0 t = t "foo"
-
 let i1 t = t "bar"
-
 let f tags i = Metrics.add src tags (fun m -> m i)
 
 let run2 () =

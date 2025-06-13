@@ -19,7 +19,6 @@
 (*************)
 
 let data_ = Queue.create ()
-
 let data () = Queue.pop data_
 
 let now =
@@ -66,7 +65,6 @@ let f tags =
   Metrics.add src tags (fun m -> m 43)
 
 let i0 t = t 42 "hi!"
-
 let i1 t = t 12 "toto"
 
 let timer =
@@ -76,7 +74,6 @@ let timer =
   Src.v "sleep" ~tags ~data ~duration:true ~status:true
 
 let m1 t = t "foo"
-
 let m2 t = t "bar"
 
 let status =

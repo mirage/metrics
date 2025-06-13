@@ -88,7 +88,6 @@ module Raw = struct
     type nonrec t = t
 
     let hash t = Hashtbl.hash (filename t)
-
     let equal a b = filename a = filename b
   end)
 end
@@ -100,7 +99,6 @@ module Lonely = struct
     type nonrec t = t
 
     let hash (s, n) = Hashtbl.hash (Src.name s ^ n)
-
     let equal (a, b) (c, d) = Src.equal a c && String.equal b d
   end)
 end
@@ -108,7 +106,6 @@ end
 type t = { dir : string; raw : file Raw.Tbl.t; lly : Graph.t Lonely.Tbl.t }
 
 let uuid = Uuidm.v4_gen (Random.State.make_self_init ()) ()
-
 let default_dir = Unix.getcwd () / "_metrics" / Uuidm.to_string uuid
 
 let empty ?(dir = default_dir) () =

@@ -31,7 +31,6 @@ type 'a ty =
   | Other : 'a Fmt.t -> 'a ty
 
 type 'a v = { ty : 'a ty; v : 'a }
-
 type graph = int
 
 type field =
@@ -48,23 +47,14 @@ module Tags = struct
   type 'a v = { k : string; pp : Format.formatter -> 'a -> unit }
 
   let v pp k = { k; pp }
-
   let string = v Fmt.string
-
   let float = v Fmt.float
-
   let int = v Fmt.int
-
   let uint = v Fmt.uint
-
   let int32 = v Fmt.int32
-
   let uint32 = v Fmt.uint32
-
   let int64 = v Fmt.int64
-
   let uint64 = v Fmt.uint64
-
   let bool = v Fmt.bool
 
   type 'a t = [] : field list t | ( :: ) : 'a v * 'b t -> ('a -> 'b) t
@@ -75,26 +65,18 @@ module Tags = struct
 end
 
 let key (F { key; _ }) = key
-
 let doc (F { doc; _ }) = doc
-
 let unit (F { unit; _ }) = unit
-
 let graphs (F { graphs; _ }) = graphs
 
 module Data = struct
   type timestamp = string
-
   type t = { timestamp : string option; fields : field list }
 
   let keys t = List.map key t.fields
-
   let timestamp t = t.timestamp
-
   let fields t = t.fields
-
   let cons h t = { t with fields = h :: t.fields }
-
   let v ?timestamp fields = { timestamp; fields }
 end
 
@@ -108,7 +90,6 @@ let index_key ~fields f =
 let index ~fields (F f) = index_key ~fields f.key
 
 type tags = field list
-
 type data = Data.t
 
 module Src = struct
@@ -166,25 +147,15 @@ module Src = struct
     src
 
   let is_active (Src s) = s.active
-
   let enable (Src s) = s.active <- true
-
   let disable (Src s) = s.active <- false
-
   let name (Src s) = s.name
-
   let doc (Src s) = s.doc
-
   let tags (Src s) = Keys.elements s.dom
-
   let equal (Src src0) (Src src1) = src0.uid = src1.uid
-
   let compare (Src src0) (Src src1) = compare src0.uid src1.uid
-
   let duration (Src s) = s.duration
-
   let status (Src s) = s.status
-
   let data (Src s) = match s.data_fields with None -> [] | Some l -> l
 
   let pp_strings ppf l =
@@ -199,7 +170,6 @@ module Src = struct
       src.name src.uid src.doc pp_strings tags pp_strings data
 
   let list () = !list
-
   let update () = List.iter (fun (Src s) -> s.active <- active s.dom) (list ())
 end
 
@@ -235,23 +205,14 @@ module Graph = struct
     id
 
   let get id = Hashtbl.find tbl id
-
   let title t = (get t).title
-
   let ylabel t = (get t).ylabel
-
   let yunit t = (get t).yunit
-
   let id t = (get t).id
-
   let enable t = (get t).active <- true
-
   let disable t = (get t).active <- false
-
   let is_active t = (get t).active
-
   let list () = Hashtbl.fold (fun x _ acc -> x :: acc) tbl []
-
   let fields g = Fields.fold (fun f acc -> f :: acc) (get g).fields []
 
   let add_field g src f =
@@ -299,23 +260,14 @@ let field ?doc ?unit ?graph ?graphs key ty v =
   F { key; doc; unit; v = { ty; v }; graphs }
 
 let ff ty ?doc ?unit ?graph ?graphs k v = field ?doc ?unit ?graph ?graphs k ty v
-
 let string = ff String
-
 let bool = ff Bool
-
 let float = ff Float
-
 let int = ff Int
-
 let int32 = ff Int32
-
 let int64 = ff Int64
-
 let uint = ff Uint
-
 let uint32 = ff Uint32
-
 let uint64 = ff Uint64
 
 type status = [ `Ok | `Error ]
@@ -324,44 +276,26 @@ let string_of_status = function `Ok -> "ok" | `Error -> "error"
 
 module Key = struct
   let duration = "duration"
-
   let status = "status"
-
   let minor_words = "minor words"
-
   let promoted_words = "promoted words"
-
   let major_words = "major words"
-
   let minor_collections = "minor collections"
-
   let major_collections = "major collections"
-
   let heap_words = "heap words"
-
   let heap_chunks = "heap chunks"
-
   let compactions = "compactions"
-
   let live_words = "live words"
-
   let live_blocks = "live blocks"
-
   let free_words = "free words"
-
   let free_blocks = "free blocks"
-
   let largest_free = "largest free"
-
   let fragments = "fragments"
-
   let top_heap_words = "top heap words"
-
   let stack_size = "stack size"
 end
 
 let status v = field Key.status (Other (Fmt.of_to_string string_of_status)) v
-
 let duration i = int64 Key.duration i
 
 let pp : type a. a ty -> a Fmt.t =
@@ -381,20 +315,18 @@ let pp : type a. a ty -> a Fmt.t =
 type value = V : 'a ty * 'a -> value
 
 let pp_key ppf f = Fmt.string ppf (key f)
-
 let pp_value ppf (F { v = { ty; v }; _ }) = pp ty ppf v
-
 let value (F { v = { ty; v }; _ }) = V (ty, v)
 
 let tag : type a b. (a, b) Src.src -> a =
  fun src ->
   let rec aux : type a. tags -> a Tags.t -> a =
    fun tags -> function
-    | Tags.[] -> List.rev tags
-    | Tags.(h :: t) ->
-      fun a ->
-        let tags = field h.k (Other h.pp) a :: tags in
-        aux tags t
+     | Tags.[] -> List.rev tags
+     | Tags.(h :: t) ->
+       fun a ->
+         let tags = field h.k (Other h.pp) a :: tags in
+         aux tags t
   in
   aux [] src.Src.tags
 
@@ -419,13 +351,9 @@ let nop_reporter =
   }
 
 let _reporter = ref nop_reporter
-
 let set_reporter r = _reporter := r
-
 let reporter () = !_reporter
-
 let () = at_exit (fun () -> !_reporter.at_exit ())
-
 let now () = !_reporter.now ()
 
 module SM = Map.Make (Src)
@@ -444,7 +372,6 @@ let report src ~over ~k tags f =
   f src.Src.data (fun data -> !_reporter.report ~tags ~data ~over (Src src) k)
 
 let over () = ()
-
 let kunit _ = ()
 
 let add_no_check src ?duration ?status tags f =
@@ -460,9 +387,7 @@ let add_no_check src ?duration ?status tags f =
       k data)
 
 let is_active src = src.Src.active
-
 let add src tags data = if is_active src then add_no_check src tags data
-
 let mk t f v = if t then Some (f v) else None
 
 let run src tags g =
@@ -494,18 +419,15 @@ let rrun src tags g =
       add_no_check src tags ?duration ?status:(status `Ok) (fun f -> f x);
       x
     | Ok (Error e as x) ->
-      add_no_check src tags ?duration
-        ?status:(status `Error)
-        (fun f -> f (Error (`Error e)));
+      add_no_check src tags ?duration ?status:(status `Error) (fun f ->
+          f (Error (`Error e)));
       x
     | Error (`Exn e as x) ->
-      add_no_check src tags ?duration
-        ?status:(status `Error)
-        (fun f -> f (Error x));
+      add_no_check src tags ?duration ?status:(status `Error) (fun f ->
+          f (Error x));
       raise e
 
 let tags_enabled () = Keys.elements Src._tags.tags
-
 let all_enabled () = Src._tags.all
 
 let enable_tag t =
