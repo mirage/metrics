@@ -123,7 +123,8 @@ module Src = struct
     let dom = Tags.domain tags in
     let active = active dom in
     if List.exists (fun (Src src) -> String.equal src.name name) !list then
-      invalid_arg ("a metrics source with the same name (" ^ name ^ ") already exists");
+      invalid_arg
+        ("a metrics source with the same name (" ^ name ^ ") already exists");
     let src =
       {
         duration;
@@ -159,8 +160,8 @@ module Src = struct
     let tags = Keys.elements (Tags.domain src.tags) in
     let data = match src.data_fields with None -> [] | Some l -> l in
     Format.fprintf ppf
-      "@[<1>(src@   @[<1>(name %S)@]@   @[<1>(doc %S)@])   \
-       @[<1>(tags (%a))@]   @[<1>(data (%a))@] @]"
+      "@[<1>(src@   @[<1>(name %S)@]@   @[<1>(doc %S)@])   @[<1>(tags \
+       (%a))@]   @[<1>(data (%a))@] @]"
       src.name src.doc pp_strings tags pp_strings data
 
   let list () = !list
