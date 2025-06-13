@@ -108,7 +108,6 @@ let escape =
       String.concat ("\\" ^ Char.escaped e) (String.split_on_char e m'))
 
 let escape_measurement m = escape [ ','; ' ' ] (avoid_keyword m)
-
 let escape_name m = escape [ ','; ' '; '=' ] (avoid_keyword m)
 
 let pp_value (str : string Fmt.t) ppf f =

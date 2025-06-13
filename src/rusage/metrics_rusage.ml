@@ -31,11 +31,8 @@ type kinfo_mem = {
 let ( let* ) = Result.bind
 
 external sysconf_clock_tick : unit -> int = "metrics_sysconf_clock_tick"
-
 external sysctl_kinfo_proc : int -> kinfo_mem = "metrics_sysctl_kinfo_proc"
-
 external getrusage : unit -> rusage = "metrics_rusage"
-
 external uname : unit -> string = "metrics_uname"
 
 let wrap f arg = try Ok (f arg) with e -> Error (`Msg (Printexc.to_string e))
