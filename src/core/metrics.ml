@@ -358,14 +358,17 @@ let now () = !_reporter.now ()
 
 module SM = Map.Make (Src)
 
+let _cache = ref SM.empty
+
+let get_cache () = !_cache
+
 let cache_reporter () =
-  let m = ref SM.empty in
   let report ~tags ~data ~over src k =
-    m := SM.add src (tags, data) !m;
+    _cache := SM.add src (tags, data) !_cache;
     over ();
     k ()
   in
-  ((fun () -> !m), { report; now; at_exit = (fun () -> ()) })
+  (get_cache, { report; now; at_exit = (fun () -> ()) })
 
 let report src ~over ~k tags f =
   let tags = tags (tag src) in

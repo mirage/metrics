@@ -477,6 +477,9 @@ val cache_reporter : unit -> (unit -> (tags * data) SM.t) * reporter
     measurement should provide the information whether it's a counter or sth
     else). *)
 
+val get_cache : unit -> (tags * data) SM.t
+(** [get_cache ()] is the current data of the cache reporter. *)
+
 (** {2:runtime OCaml Gc sources}
 
     The {{:http://caml.inria.fr/pub/docs/manual-ocaml/libref/Gc.html} Gc} module
