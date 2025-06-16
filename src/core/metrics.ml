@@ -31,6 +31,23 @@ type 'a ty =
   | Other : 'a Fmt.t -> 'a ty
 
 type 'a v = { ty : 'a ty; v : 'a }
+
+let eq_v : type a b. a v -> b v -> bool =
+ fun a b ->
+  match (a.ty, b.ty, a.v, b.v) with
+  | String, String, sa, sb -> String.equal sa sb
+  | Bool, Bool, ba, bb -> Bool.equal ba bb
+  | Float, Float, fa, fb -> Float.equal fa fb
+  | Int, Int, ia, ib -> Int.equal ia ib
+  | Int32, Int32, ia, ib -> Int32.equal ia ib
+  | Int64, Int64, ia, ib -> Int64.equal ia ib
+  | Uint, Uint, ia, ib -> Int.equal ia ib
+  | Uint32, Uint32, ia, ib -> Int32.equal ia ib
+  | Uint64, Uint64, ia, ib -> Int64.equal ia ib
+  | Other ppa, Other ppb, oa, ob ->
+    String.equal (Fmt.to_to_string ppa oa) (Fmt.to_to_string ppb ob)
+  | _, _, _, _ -> false
+
 type graph = int
 
 type field =
@@ -42,6 +59,8 @@ type field =
       v : 'a v;
     }
       -> field
+
+let eq_field (F f1) (F f2) = String.equal f1.key f2.key && eq_v f1.v f2.v
 
 module Tags = struct
   type 'a v = { k : string; pp : Format.formatter -> 'a -> unit }
@@ -361,10 +380,18 @@ module SM = Map.Make (Src)
 let _cache = ref SM.empty
 let get_cache () = !_cache
 
+let eq_tags t1 t2 =
+  List.length t1 = List.length t2 && List.for_all2 eq_field t1 t2
+
 let cache_reporter ?cb () =
   let call = match cb with Some f -> f | None -> fun _ _ _ -> () in
   let report ~tags ~data ~over src k =
-    _cache := SM.add src (tags, data) !_cache;
+    let others = Option.value ~default:[] (SM.find_opt src !_cache) in
+    let v =
+      (tags, data)
+      :: List.filter (fun (tags', _) -> not (eq_tags tags tags')) others
+    in
+    _cache := SM.add src v !_cache;
     over ();
     call src tags data;
     k ()
