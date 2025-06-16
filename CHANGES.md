@@ -1,3 +1,13 @@
+## v0.5.0 (2025-06-16)
+
+- Cache_reporter: add a get_cache function, remove the returned get_cache
+  function, document get_cache depends on cache_reporter (#63 @reynir @hannesm)
+- Cache_reporter: add a callback function for pushing updates (#63 @hannesm)
+- Cache_reporter: preserve a list of (tags, data), fixes #59 (#68 @hannesm)
+- Update uuidm (#61 @reynir)
+- Fix documentation link (reported in #62 by @reynir, fixed #69 by @hannesm)
+- Fix documentation of Src.v (reported in #64 by @reynir, fixed #69 by @hannesm)
+
 ## v0.4.1 (2023-06-08)
 
 - metrics-unix: adapt to mtime 2.0.0 changes (remove dependency on mtime.clock)
