@@ -359,7 +359,6 @@ let now () = !_reporter.now ()
 module SM = Map.Make (Src)
 
 let _cache = ref SM.empty
-
 let get_cache () = !_cache
 
 let cache_reporter ?cb () =
