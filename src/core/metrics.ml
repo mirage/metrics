@@ -363,11 +363,11 @@ let _cache = ref SM.empty
 let get_cache () = !_cache
 
 let cache_reporter ?cb () =
-  let call = match cb with Some f -> f | None -> Fun.id in
+  let call = match cb with Some f -> f | None -> fun _ _ _ -> () in
   let report ~tags ~data ~over src k =
     _cache := SM.add src (tags, data) !_cache;
     over ();
-    call ();
+    call src tags data;
     k ()
   in
   (get_cache, { report; now; at_exit = (fun () -> ()) })

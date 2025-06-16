@@ -464,7 +464,8 @@ val set_reporter : reporter -> unit
 
 module SM : Map.S with type key = Src.t
 
-val cache_reporter : ?cb:(unit -> unit) -> unit -> (unit -> (tags * data) SM.t) * reporter
+val cache_reporter : ?cb:(Src.t -> tags -> data -> unit) -> unit ->
+  (unit -> (tags * data) SM.t) * reporter
 (** [cache_reporter ?cb ()] is a reporter that stores the last measurement from
     each source in a map (which can be retrieved by the returned function). This
     overcomes the push vs pull interface. Each measurement _event_ is sent at an
