@@ -481,7 +481,7 @@ val cache_reporter : ?cb:(Src.t -> tags -> data -> unit) -> unit -> reporter
     measurement should provide the information whether it's a counter or sth
     else). *)
 
-val get_cache : unit -> (tags * data) SM.t
+val get_cache : unit -> (tags * data) list SM.t
 (** [get_cache ()] is the current data of the cache reporter. The cache is only
     filled if [cache_reporter ?cb ()] is set as a reporter. *)
 
