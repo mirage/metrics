@@ -370,7 +370,7 @@ let cache_reporter ?cb () =
     call src tags data;
     k ()
   in
-  (get_cache, { report; now; at_exit = (fun () -> ()) })
+  { report; now; at_exit = (fun () -> ()) }
 
 let report src ~over ~k tags f =
   let tags = tags (tag src) in

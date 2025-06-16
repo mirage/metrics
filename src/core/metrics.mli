@@ -465,9 +465,9 @@ val set_reporter : reporter -> unit
 module SM : Map.S with type key = Src.t
 
 val cache_reporter : ?cb:(Src.t -> tags -> data -> unit) -> unit ->
-  (unit -> (tags * data) SM.t) * reporter
+  reporter
 (** [cache_reporter ?cb ()] is a reporter that stores the last measurement from
-    each source in a map (which can be retrieved by the returned function). This
+    each source in a map (which can be retrieved by {!get_cache} below). This
     overcomes the push vs pull interface. Each measurement _event_ is sent at an
     arbitrary point in time, while reporting over a communication channel may be
     rate-limited (i.e. report every 10 seconds statistics, rather than whenever
