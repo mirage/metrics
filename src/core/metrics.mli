@@ -287,14 +287,14 @@ module Src : sig
   (** [v ?doc ?duration ?status ~tags ~data name] is a new source, accepting
       arbitrary data points - which are specified using [data]. [name] is the
       name of the source; it doesn't need to be unique but it is good practice
-      to prefix the name with the name of your package or library
-      (e.g. ["mypkg.network"]). [doc] is a documentation string describing the
-      source, defaults to ["undocumented"]. The [duration] and [status] specify
-      whether this source takes durations of an event, or a return status. Both
-      are by default false. [tags] is the collection if (typed) tags which will
-      be used to tag and index the measure and are used identify the various
-      metrics. The source will be enabled on creation iff one of tag in [tags]
-      has been enabled with {!enable_tag}.
+      to prefix the name with the name of your package or library (e.g.
+      ["mypkg.network"]). [doc] is a documentation string describing the source,
+      defaults to ["undocumented"]. The [duration] and [status] specify whether
+      this source takes durations of an event, or a return status. Both are by
+      default false. [tags] is the collection if (typed) tags which will be used
+      to tag and index the measure and are used identify the various metrics.
+      The source will be enabled on creation iff one of tag in [tags] has been
+      enabled with {!enable_tag}.
 
       For instance, to create a metric to collect CPU and memory usage on
       various machines, indexed by [PID], [host] name and [IP] address:
