@@ -467,18 +467,23 @@ val set_reporter : reporter -> unit
 
 module SM : Map.S with type key = Src.t
 
-val cache_reporter : unit -> (unit -> (tags * data) SM.t) * reporter
-(** [cache_reporter now ()] is a reporter that stores the last measurement from
-    each source in a map (which can be retrieved by the returned function). This
-    is an initial attempt to overcome the push vs pull interface. Each
-    measurement _event_ is sent at an arbitrary point in time, while reporting
-    over a communication channel may be rate-limited (i.e. report every 10
-    seconds statistics, rather than whenever they appear).
+val cache_reporter : ?cb:(Src.t -> tags -> data -> unit) -> unit -> reporter
+(** [cache_reporter ?cb ()] is a reporter that stores the last measurement from
+    each source in a map (which can be retrieved by {!get_cache} below). This
+    overcomes the push vs pull interface. Each measurement _event_ is sent at an
+    arbitrary point in time, while reporting over a communication channel may be
+    rate-limited (i.e. report every 10 seconds statistics, rather than whenever
+    they appear). The optional [cb] function is called for each measurement that
+    gets reported.
 
     This is only a good idea for counters, histograms etc. may be useful for
     other numbers (such as time consumed between receive and send - the
     measurement should provide the information whether it's a counter or sth
     else). *)
+
+val get_cache : unit -> (tags * data) SM.t
+(** [get_cache ()] is the current data of the cache reporter. The cache is only
+    filled if [cache_reporter ?cb ()] is set as a reporter. *)
 
 (** {2:runtime OCaml Gc sources}
 
